@@ -1,5 +1,5 @@
-#summary About Frostbridge
 #labels Featured
+== About Frostbridge ==
 
  * Written in [http://www.scala-lang.org/ Scala]
  * Statically typed data binding
@@ -12,3 +12,17 @@
  * Tests use [http://code.google.com/p/scalacheck/ scalacheck]
  * Built with [http://maven.apache.org/ Maven]
  * LGPL (v2.1 or higher) license
+
+
+== What it does not do ==
+
+ * Anything involving a schema language (like XML Schema or RelaxNG).
+  * In particular, no automatic generation of anything from a schema
+ * Bytecode manipulation
+
+== Alternatives ==
+ * schema2src (link?)
+ * [http://jibx.sourceforge.net/ JiBX]
+ * [https://jaxb.dev.java.net/ JAXB]
+ * [http://ws.apache.org/jaxme/ JaxMe]
+ * [http://www.castor.org/ Castor]
