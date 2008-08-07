@@ -25,20 +25,21 @@ import java.io.Writer
 
 /**
 * A pattern that matches an attribute.  This pattern allows an attribute to be matched
-* by name and content.
-* The implementation of ValueParser describes the content to be matched.
+* by name and value.
 */
 trait AttributePattern[Generated] extends UnmatchedPattern[Generated]
-	with NameMarshaller[Generated] with BasicMarshaller[Generated]
+	with BasicMarshaller[Generated] with NameMarshaller[Generated] 
 {
 	/**
 	* Describes the set of allowed names of an attribute matched by this pattern
 	*/
 	def nameClass: NameClass
 	
-	def matchEmpty = None
+	def contentDescription: String
+	def generate(attributeName: QName, attributeValue: String): Option[Generated]
+	def marshalImpl(g: Generated): Option[out.Attribute]
 	
-	def value: ValueParser[Generated]
+	def matchEmpty = None
 	
 	def derive(node: in.Node): Pattern[Generated] =
 	{
@@ -47,29 +48,19 @@ trait AttributePattern[Generated] extends UnmatchedPattern[Generated]
 			case attribute: in.Attribute =>
 			{
 				if(nameClass.matches(attribute.name))
-				{
-					value.generate(attribute.value) match
-					{
-						case Some(value) => EmptyPattern(value)
-						case None => NotAllowedPattern
-					}
-				}
+					generate(attribute.name, attribute.value).map(EmptyPattern(_)).getOrElse(NotAllowedPattern)
 				else
 					NotAllowedPattern
 			}
 			case _ => NotAllowedPattern
 		}
 	}
-	protected def marshalImpl(g: Generated, reverseXML: List[out.Node]): Option[List[out.Node]] =
-	{
-		for(name <- generateName(g);
-			value <- value.marshalToString(g))
-		yield
-			out.Attribute(name, value) :: reverseXML
-	}
 	
-	def name = nameClass.description
-	def description = "attribute " + nameClass.description + "={" + value.dataDescription + "}"
+	def marshalImpl(g: Generated, reverseXML: List[out.Node]): Option[List[out.Node]] =
+		for(attribute <- marshalImpl(g)) yield
+			attribute :: reverseXML
+	
+	def description = "attribute " + nameClass.description + "={" + contentDescription + "}"
 	
 	def nextPossiblePatterns = List(this)
 	def trace(writer: Writer, level: Int, reference: ReferenceFunction)
@@ -82,8 +73,28 @@ trait AttributePattern[Generated] extends UnmatchedPattern[Generated]
 		writer.write(" }\n")
 	}
 	
-	protected def traceContent(writer: Writer) = ()
+	protected def traceContent(writer: Writer) = writer.write(contentDescription)
 }
 
-class BasicAttributePattern[Generated](val nameClass: NameClass, val value: ValueParser[Generated])
-	extends AttributePattern[Generated]
+/** An implementation of AttributePattern that uses a ValueParser
+* to determine the value to be matched.
+*/
+trait BasicAttributePattern[Generated] extends AttributePattern[Generated]
+{
+	def value: ValueParser[Generated]
+	
+	def contentDescription = value.dataDescription
+	
+	def generate(name: QName, valueString: String) = value.generate(valueString)
+	
+	def marshalImpl(g: Generated): Option[out.Attribute] =
+	{
+		for(name <- generateName(g);
+			value <- value.marshalToString(g))
+		yield
+			out.Attribute(name, value)
+	}
+}
+
+class SimpleAttributePattern[Generated](val nameClass: NameClass, val value: ValueParser[Generated])
+	extends BasicAttributePattern[Generated]

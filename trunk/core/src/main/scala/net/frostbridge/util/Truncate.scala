@@ -18,7 +18,7 @@
 */
 package net.frostbridge.util
 
-/** Utility methods for implementing the Text node description.*/
+/** Utility methods for truncating a string to a maximum length.*/
 object TruncateString
 {
 	/** The maximum number of characters of a string returned from truncate. */

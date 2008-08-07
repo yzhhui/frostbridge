@@ -82,15 +82,28 @@ sealed trait Node extends NotNull
 	def toXMLLike: String
 }
 
-/**
-* A text node.
-*/
+/** A text node. */
 sealed trait Text extends Node
 {
-	/**
-	* Returns the value of this text node
-	*/
+	/** Returns the value of this text node */
 	def value: String
+}
+
+/** A processing instruction. */
+sealed trait ProcessingInstruction extends Node
+{
+	/** The target of this processing instruction */
+	def target: String
+	
+	/** The data of this processing instruction */
+	def data: String
+}
+
+/** A comment */
+sealed trait Comment extends Node
+{
+	/** The content of the comment. */
+	def content: String
 }
 
 /**
@@ -101,9 +114,7 @@ sealed trait Text extends Node
 */
 sealed trait ElementTag extends Node
 {
-	/**
-	* Returns the qualified name for the current element
-	*/
+	/** Returns the qualified name for the current element. */
 	def elementName: QName
 }
 
@@ -130,13 +141,9 @@ sealed trait Close extends ElementTag
 */
 sealed trait Attribute extends ElementTag
 {
-	/**
-	* The qualified name of this attribute.
-	*/
+	/** The qualified name of this attribute. */
 	def name: QName
-	/**
-	* The text representation of the value of this attribute.
-	*/
+	/** The text representation of the value of this attribute. */
 	def value: String
 }
 
@@ -159,10 +166,11 @@ sealed trait Attribute extends ElementTag
 * the underlying reader when called.
 */
 import org.codehaus.stax2.XMLStreamReader2
-private final class StAXStream(reader: XMLStreamReader2) extends XMLStream
+private final class StAXStream(reader: XMLStreamReader2, config: StreamConfiguration) extends XMLStream
 {
 	import javax.xml.stream.XMLStreamConstants
 	import javax.xml.stream.XMLStreamConstants._
+	import net.frostbridge.util.TruncateString
 	
 	assume(reader != null, "XML Document stream cannot be null")
 	verifyReaderIsFresh
@@ -223,9 +231,25 @@ private final class StAXStream(reader: XMLStreamReader2) extends XMLStream
 						case error @ _ => error
 					}
 				}
-				case CHARACTERS if !reader.isWhiteSpace =>
+				case CHARACTERS if !(reader.isWhiteSpace && config.ignoreWhitespaceOnly) =>
 				{
 					processor.process(state, new TextImpl) match
+					{
+						case Right(newState) => processElementContent(newState)
+						case error @ _ => error
+					}
+				}
+				case PROCESSING_INSTRUCTION if !config.ignoreProcessingInstructions =>
+				{
+					processor.process(state, new ProcessingInstructionImpl) match
+					{
+						case Right(newState) => processElementContent(newState)
+						case error @ _ => error
+					}
+				}
+				case COMMENT if !config.ignoreComments =>
+				{
+					processor.process(state, new CommentImpl) match
 					{
 						case Right(newState) => processElementContent(newState)
 						case error @ _ => error
@@ -254,7 +278,7 @@ private final class StAXStream(reader: XMLStreamReader2) extends XMLStream
 		// this is only valid in a subclass constructor, since it references the current state of the reader
 		protected[this] def require(eventType: Int) = reader.require(eventType, null, null)
 		
-		override def toString = {error("Node.toString should not be used.  Use desription or toXMLLike as applicable."); ""}
+		override def toString = {error("Node.toString should not be used.  Use description or toXMLLike as applicable."); ""}
 	}
 	private sealed abstract class ElementTagImpl extends NodeImpl with ElementTag
 	{
@@ -311,23 +335,45 @@ private final class StAXStream(reader: XMLStreamReader2) extends XMLStream
 				new AttributeImpl(index)
 		attributes.toList
 	}
+	/** Processes the current reader context into a text string. The underlying stream must
+	* be at a position that can return text. */
+	private def getText: String =
+	{
+		assume(reader.hasText)
+		import java.io.StringWriter
+		val writer = new StringWriter
+		reader.getText(writer, false)
+		writer.getBuffer.toString
+	}
 	private class TextImpl extends NodeImpl with Text
 	{
 		require(CHARACTERS)
-		assume(!reader.isWhiteSpace)
-		
-		val value: String =
-		{
-			import java.io.StringWriter
-			val writer = new StringWriter
-			reader.getText(writer, false)
-			writer.getBuffer.toString
-		}
-		
+		val value: String = getText
 		def toXMLLike = value
-		def description = "text '" + net.frostbridge.util.TruncateString(value) + "'"
+		def description = "text '" + TruncateString(value) + "'"
+	}
+	private class CommentImpl extends NodeImpl with Comment
+	{
+		require(COMMENT)
+		
+		val content: String = getText
+		
+		def description = "comment '" + TruncateString(content) + "'"
+		def toXMLLike = "<!--" + content + "-->"
+	}
+	private class ProcessingInstructionImpl extends NodeImpl with ProcessingInstruction
+	{
+		require(PROCESSING_INSTRUCTION)
+		
+		val target: String = reader.getPITarget
+		val data: String = reader.getPIData
+		
+		def toXMLLike = "<?" + target + " " + data + "?>"
+		def description = "processing instruction {target='" + target + "' data='" + TruncateString(data) + "'}"
 	}
 }
+
+case class StreamConfiguration(ignoreProcessingInstructions: Boolean, ignoreComments: Boolean, ignoreWhitespaceOnly: Boolean)
 
 /** Contains methods to create an XMLStream object using the Woodstox pull parser.*/
 object StAXStream
@@ -336,10 +382,18 @@ object StAXStream
 	import java.io.{File, InputStream, Reader}
 	import DefaultInputFactory.createReader
 	
-	def apply(file: File): XMLStream = new StAXStream(createReader(file))
-	def apply(url: URL): XMLStream = new StAXStream(createReader(url))
-	def apply(stream: InputStream): XMLStream = new StAXStream(createReader(stream))
-	def apply(reader: Reader): XMLStream = new StAXStream(createReader(reader))
+	val DefaultStreamConfiguration = 
+		StreamConfiguration(true, true, true)
+	
+	def apply(file: File, config: StreamConfiguration): XMLStream = new StAXStream(createReader(file), config)
+	def apply(url: URL, config: StreamConfiguration): XMLStream = new StAXStream(createReader(url), config)
+	def apply(stream: InputStream, config: StreamConfiguration): XMLStream = new StAXStream(createReader(stream), config)
+	def apply(reader: Reader, config: StreamConfiguration): XMLStream = new StAXStream(createReader(reader), config)
+	
+	def apply(file: File): XMLStream = apply(file, DefaultStreamConfiguration)
+	def apply(url: URL): XMLStream = apply(url, DefaultStreamConfiguration)
+	def apply(stream: InputStream): XMLStream = apply(stream, DefaultStreamConfiguration)
+	def apply(reader: Reader): XMLStream = apply(reader, DefaultStreamConfiguration)
 	
 	private def nullToEmptyString(value: String): String with NotNull =
 		if(value == null)

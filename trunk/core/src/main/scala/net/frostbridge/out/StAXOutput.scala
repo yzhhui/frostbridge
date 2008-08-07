@@ -71,6 +71,7 @@ sealed trait Node
 }
 final case class Attribute(name: QName, value: String) extends Node
 {
+	assume(value != null, "Attribute value cannot be null")
 	def write(writer: XMLStreamWriter) = writer.writeAttribute("", name.namespaceURI, name.localPart, value)
 	
 	override def toString = name.localPart + "=" + value
@@ -92,20 +93,20 @@ final case class Element(name: QName)(content: List[Node]) extends Node
 }
 final case class Text(text: String) extends Node
 {
-	assume(text != null)
+	assume(text != null, "Text content cannot be null")
 	def write(writer: XMLStreamWriter) = writer.writeCharacters(text)
 	override def toString = text
 }
 final case class ProcessingInstruction(target: String, data: String) extends Node
 {
-	assume(target != null)
-	assume(data != null)
+	assume(target != null, "Processing instruction target cannot be null.")
+	assume(data != null, "Processing instruction data cannot be null.")
 	def write(writer: XMLStreamWriter) = writer.writeProcessingInstruction(target, data)
 	override def toString = "<?" + target + " " + data + " ?>"
 }
 final case class Comment(text: String) extends Node
 {
-	assume(text != null)
+	assume(text != null, "Comment content cannot be null.")
 	def write(writer: XMLStreamWriter) = writer.writeComment(text)
 	override def toString = "<!--" + text + "-->"
 }

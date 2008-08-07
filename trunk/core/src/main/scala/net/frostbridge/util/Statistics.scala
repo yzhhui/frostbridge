@@ -33,6 +33,8 @@ abstract class Statistics
 	def choices: Int
 	def heteroChoices: Int
 	def translating: Int
+	def comments: Int
+	def processingInstructions: Int
 	
 	override def toString =
 		"\nStatistics\n" +
@@ -49,6 +51,8 @@ abstract class Statistics
 		"\n  Mixed choice:\t" + heteroChoices +
 		"\n  Translating:\t" + translating +
 		"\n  Repeats:\t" + repeat +
+		"\n  Comments:\t" + comments +
+		"\n  Processing Instructions:\t" + processingInstructions +
 		"\n  Other:\t" + other + "\n"
 }
 
@@ -77,6 +81,8 @@ object Statistics
 			case r: Repeat[_] => stats.repeat += 1; r.partial.map(p => statistics(p, stats)); statistics(r.repeated, stats)
 			case v: EmptyPattern[_] => stats.empty += 1
 			case t: TextPattern[_] => { stats.textNodes += 1 }
+			case pi: ProcessingInstructionPattern[_] => { stats.processingInstructions += 1 }
+			case c: CommentPattern[_] => { stats.comments += 1 }
 			case NotAllowedPattern => stats.notAllowed += 1
 			case _ => stats.other += 1
 		}
@@ -85,16 +91,16 @@ object Statistics
 	private class MutableStatistics extends Statistics
 	{
 		var elements, attributes, textNodes, ordered, notAllowed, empty, other, elementContent, repeat,
-			unordered, choices, heteroChoices, translating: Int = _
+			unordered, choices, heteroChoices, translating, comments, processingInstructions: Int = _
 		
 		private def toTuple = (elements, attributes, textNodes, ordered, notAllowed, empty, other, elementContent, repeat,
-			unordered, choices, heteroChoices, translating)
+			unordered, choices, heteroChoices, translating, comments, processingInstructions)
 			
 		def toImmutable: Statistics =
 			new Statistics
 			{
 				val (elements, attributes, textNodes, ordered, notAllowed, empty, other, elementContent, repeat,
-					unordered, choices, heteroChoices, translating) = toTuple
+					unordered, choices, heteroChoices, translating, comments, processingInstructions) = toTuple
 			}
 	}
 }

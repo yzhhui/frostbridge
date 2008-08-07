@@ -25,7 +25,7 @@ package net.frostbridge.example
 *      how to convert between the XML and Scala objects.
 * 3) Initiate marshalling or unmarshalling given an XML document or an object.
 *
-* To run the example, type
+* To run the example from a checked out project using Maven, type
 *   mvn scala:console
 * in the frostbridge/examples/sitemap directory.
 * scala> import net.frostbridge.example.SiteMapExample
@@ -111,7 +111,7 @@ object SiteMapExample
 			case Left(e) => println(e.toString)
 		}
 	}
-	
+// =========================== Define the pattern ===========================
 	// The namespace for the sitemap protocol.
 	val ns = "http://www.sitemaps.org/schemas/sitemap/0.9"
 		
@@ -185,7 +185,9 @@ object SiteMapExample
 	}
 }
 
-// The data objects are defined by the user, not the library.  Additionally,
+// ====================== Define the data types =============================
+
+// The data types are defined by the user, not the library.  Additionally,
 //   the user defines how to construct the data objects in the patterns, so
 //   the library does not use any reflection or bytecode manipulation to
 //   build the data objects.
