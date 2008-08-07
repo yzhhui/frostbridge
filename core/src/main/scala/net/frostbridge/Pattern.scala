@@ -29,6 +29,8 @@ package net.frostbridge
 *	Sequence (Ordered or Unordered)
 *	Repeat
 *	Text
+*	ProcessingInstruction
+*	Comment
 *	Empty
 *	Not allowed
 *

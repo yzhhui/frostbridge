@@ -44,12 +44,12 @@ sealed trait BinaryCompoundPattern[A,B,C] extends UnmatchedPattern[C]
 	}
 	private def tracePattern(pattern: Traceable, writer: Writer, level: Int, reference: ReferenceFunction)
 	{
-		pattern match
-		{
-			case b: This => b.traceFlattened(writer, level, reference)
-			case _ => pattern.embeddedTrace(writer, level+1, reference)
-		}
+		if(isSameType(pattern))
+			pattern.asInstanceOf[BinaryCompoundPattern[_,_,_]].traceFlattened(writer, level, reference)
+		else
+			pattern.embeddedTrace(writer, level+1, reference)
 	}
+	protected def isSameType(other: Traceable): Boolean
 	
 	def description = "( " + pattern1.description + " " + separator + " " + pattern2.description + " )"
 	def pattern1: Pattern[A]
@@ -145,6 +145,8 @@ final class HeterogeneousChoice[A, B](val pattern1: Pattern[A], val pattern2: Pa
 	def derive(node: in.Node) = heterogeneousChoice(pattern1.derive(node), pattern2.derive(node))
 	
 	lazy val matchEmpty = pattern1.matchEmpty.map(Left(_)).orElse(pattern2.matchEmpty.map(Right(_)))
+	
+	protected def isSameType(other: Traceable) = other.isInstanceOf[HeterogeneousChoice[_,_]]
 }
 
 final class HomogeneousChoice[Generated](val pattern1: Pattern[Generated], val pattern2: Pattern[Generated])
@@ -174,6 +176,8 @@ final class HomogeneousChoice[Generated](val pattern1: Pattern[Generated], val p
 		yield
 			ChainedMarshalException(g, this)(errorA :: errorB :: Nil)
 	}
+	
+	protected def isSameType(other: Traceable) = other.isInstanceOf[HomogeneousChoice[_]]
 }
 
 final class OrderedSequence[A,B](val pattern1: Pattern[A], val pattern2: Pattern[B]) extends BinaryRequired[A,B]
@@ -211,6 +215,8 @@ final class OrderedSequence[A,B](val pattern1: Pattern[A], val pattern2: Pattern
 			p1Possible ::: pattern2.nextPossiblePatterns
 	}
 	def separator = ":+:"
+	
+	protected def isSameType(other: Traceable) = other.isInstanceOf[OrderedSequence[_,_]]
 }
 
 final class UnorderedSequence[A,B](val pattern1: Pattern[A], val pattern2: Pattern[B]) extends BinaryRequired[A,B]
@@ -237,5 +243,7 @@ final class UnorderedSequence[A,B](val pattern1: Pattern[A], val pattern2: Patte
 	def nextPossiblePatterns = pattern1.nextPossiblePatterns ::: pattern2.nextPossiblePatterns 
 	
 	def separator = ","
+	
+	protected def isSameType(other: Traceable) = other.isInstanceOf[UnorderedSequence[_,_]]
 }
 

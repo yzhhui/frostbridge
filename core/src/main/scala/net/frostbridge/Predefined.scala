@@ -35,12 +35,12 @@ object Predefined
 	implicit def any2Anchor[A](a: A): Anchor[A] = new Anchor[A](a)
 	
 	// Simplified constructors for some patterns
-	def Any_@(nameClass: NameClass) = new BasicAttributePattern[String](nameClass, AnyString)
-	def A1_@(nameClass: NameClass) = new BasicAttributePattern[String](nameClass, AlphanumericString)
-	def Double_@(nameClass: NameClass) = new BasicAttributePattern[Double](nameClass, AnyDouble)
+	def Any_@(nameClass: NameClass) = new SimpleAttributePattern[String](nameClass, AnyString)
+	def A1_@(nameClass: NameClass) = new SimpleAttributePattern[String](nameClass, AlphanumericString)
+	def Double_@(nameClass: NameClass) = new SimpleAttributePattern[Double](nameClass, AnyDouble)
 	
 	// Abbreviated aliases for some patterns
-	type Attribute[Generated] = BasicAttributePattern[Generated]
+	type Attribute[Generated] = SimpleAttributePattern[Generated]
 	type Element[Generated, ChildGenerated] = BasicElementPattern[Generated, ChildGenerated]
 	type TextElement[Generated] = TextElementPattern[Generated]
 	type Text[Generated] = BasicTextPattern[Generated]

@@ -73,13 +73,13 @@ trait ElementPattern[Generated, ChildGenerated] extends UnmatchedPattern[Generat
 		translateMarshalError(g)
 		{
 			for(name <- orError(g, generateName(g));
-				childValue <- orError(g, marshalTranslate(g));
+				childValue <- orError(g, marshalTranslate(name, g));
 				content <- childrenPattern.marshal(childValue, Nil).right)
 			yield
 				out.Element(name)(content.reverse) :: reverseXML
 		}
 	}
-	def marshalTranslate(g: Generated): Option[ChildGenerated]
+	def marshalTranslate(generatedName: QName, g: Generated): Option[ChildGenerated]
 	
 	def nextPossiblePatterns = List(this)
 	def description = "element '" + nameClass.description + "'"
@@ -99,26 +99,26 @@ class BasicElementPattern[Generated, ChildGenerated]
 	val marshalTranslateA: Generated => Option[ChildGenerated]) extends ElementPattern[Generated, ChildGenerated]
 {
 	def generate(actualName: QName, childValue: ChildGenerated): Generated = generateA(childValue)
-	def marshalTranslate(g: Generated) = marshalTranslateA(g)
+	def marshalTranslate(generatedName: QName, g: Generated) = marshalTranslateA(g)
 }
 
 class TextElementPattern[Generated](val nameClass: NameClass, textContent: ValueParser[Generated])
 	extends ElementPattern[Generated, Generated]
 {
 	val childrenPattern = new BasicTextPattern(textContent)
-	def generate(actualName: QName, textValue: Generated) = textValue
-	def marshalTranslate(g: Generated) = Some(g)
+	def generate(matchedName: QName, textValue: Generated) = textValue
+	def marshalTranslate(generatedName: QName, g: Generated) = Some(g)
 }
 
 /**
 * A pattern that matches an element without any attributes, child elements, or text.
 * The generated object is the value passed to the constructor.
 */
-class EmptyElementPattern[Generated](val nameClass: NameClass, value: => Generated) extends ElementPattern[Generated, Unit]
+class EmptyElementPattern[Generated](val nameClass: NameClass, value: QName => Generated) extends ElementPattern[Generated, Unit]
 {
 	val childrenPattern = EmptyPattern(())
-	def generate(actualName: QName, u: Unit): Generated = value
-	def marshalTranslate(g: Generated) = Some(())
+	def generate(matchedName: QName, u: Unit): Generated = value(matchedName)
+	def marshalTranslate(generatedName: QName, g: Generated) = Some(())
 }
 
 object ElementContentPattern

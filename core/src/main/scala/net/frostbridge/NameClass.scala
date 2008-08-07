@@ -18,6 +18,8 @@
 */
 package net.frostbridge
 
+import NameClass.exceptToString
+
 sealed trait NameClass extends NotNull
 {
 	def matches(qname: QName): Boolean
@@ -25,8 +27,8 @@ sealed trait NameClass extends NotNull
 	
 	override def toString = "NameClass: " + description
 	
-	protected def exceptToString(basic: String, except: NameClass): String =
-		basic + "-[ " + except.description + " ]"
+	def | (other: NameClass): NameClass = NameChoice(this, other)
+	def unary_! : NameClass = AnyNameExcept(this)
 }
 
 case object AnyName extends NameClass
@@ -38,6 +40,7 @@ final case class AnyNameExcept(except: NameClass) extends NameClass
 {
 	def matches(qname: QName) = !except.matches(qname)
 	def description = exceptToString("*", except)
+	override def unary_! : NameClass = except
 }
 
 final case class NsName(namespaceURI: String) extends NameClass
@@ -68,4 +71,7 @@ object NameClass
 {
 	implicit def qNameToClass(qname: QName): Name = Name(qname)
 	implicit def localPartToClass(localPart: String): Name = Name(util.Check(localPart))
+	
+	 def exceptToString(basic: String, except: NameClass): String =
+		basic + "-[ " + except.description + " ]"
 }
