@@ -84,7 +84,7 @@ object SiteMapExample
 			{
 				val unmarshalEndTime = System.currentTimeMillis
 				val unmarshalTime = (unmarshalEndTime - unmarshalStartTime)/1000.0
-				println("\nSuccessfully unmarshalled sitemap document with " + parsed.locations.length + " URLs in " + unmarshalTime + " s:")
+				println("\nSuccessfully unmarshalled sitemap document with " + parsed.locations.length + " URLs in " + unmarshalTime + " s")
 				if(echoResult)
 				{
 					println()

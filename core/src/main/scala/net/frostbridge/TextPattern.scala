@@ -48,6 +48,7 @@ trait TextPattern[Generated] extends ContentPattern[Generated]
 			case _ => NotAllowedPattern
 		}
 	}
+	def description = content.dataDescription
 }
 
 class BasicTextPattern[Generated](val content: ValueParser[Generated]) extends TextPattern[Generated]
@@ -69,7 +70,6 @@ trait ContentPattern[Generated] extends UnmatchedPattern[Generated] with BasicMa
 	def trace(writer: Writer, level: Int, reference: ReferenceFunction) = basicTrace(writer, level, description)
 	
 	def nextPossiblePatterns = List(this)
-	def description = content.dataDescription
 }
 
 /**
@@ -95,6 +95,7 @@ trait CommentPattern[Generated] extends ContentPattern[Generated]
 		}
 	}
 	
+	def description = "comment { " + content.dataDescription + " }"
 	protected def nodeFromString(string: String) = out.Comment(string)
 }
 

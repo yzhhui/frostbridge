@@ -94,7 +94,7 @@ object Unmarshaller
 					""
 				}
 				else if(possibilities.size > 1)
-					"one of:"
+					"one of:\n"
 				else
 					"\n"
 			}
@@ -118,11 +118,18 @@ final class Unmarshaller[Generated, ResultType]
 	private object NodeProcessor
 		extends in.Processor[Pattern[Generated], UnmarshalError[Generated], ResultType]
 	{
+		/*private var statistics = util.Statistics.statistics(pattern)
+		println("Initial statistics:\n" + statistics.toCompactString + "\n")*/
 		def process(currentPattern: Pattern[Generated], node: in.Node) =
 		{
 			val newPattern = currentPattern.derive(node)
 			if(newPattern.valid)
+			{
+				/*val oldStatistics = statistics
+				statistics = util.Statistics.statistics(newPattern)
+				println("Statistics change:\n" + (statistics - oldStatistics).toCompactString + "\n")*/
 				Right(newPattern)
+			}
 			else
 				Left(UnmarshalError(currentPattern, node))
 		}
@@ -131,7 +138,7 @@ final class Unmarshaller[Generated, ResultType]
 		def complete(result: Pattern[Generated]) =
 		{
 			//no error if the document has been completely parsed
-			result.matched match
+			result.matchEmpty match
 			{
 				case Some(generated) => handler.unmarshalled(generated)
 				case None => handler.incompleteMatch(result)

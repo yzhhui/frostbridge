@@ -41,7 +41,7 @@ trait ElementPattern[Generated, ChildGenerated] extends UnmatchedPattern[Generat
 	* The child pattern of this element.  This pattern will match attributes, child elements, and/or
 	* text content.  Use a compound pattern for multiple children and EmptyPattern for no content.
 	*/
-	val childrenPattern: Pattern[ChildGenerated]
+	def childrenPattern: Pattern[ChildGenerated]
 	
 	/**
 	* A function that processes the result of the child pattern.
@@ -76,14 +76,15 @@ trait ElementPattern[Generated, ChildGenerated] extends UnmatchedPattern[Generat
 				childValue <- orError(g, marshalTranslate(name, g));
 				content <- childrenPattern.marshal(childValue, Nil).right)
 			yield
-				out.Element(name)(content.reverse) :: reverseXML
+				out.Element(name, content.reverse) :: reverseXML
 		}
 	}
 	def marshalTranslate(generatedName: QName, g: Generated): Option[ChildGenerated]
 	
 	def nextPossiblePatterns = List(this)
 	def description = "element '" + nameClass.description + "'"
-	def name = nameClass.description
+	// for tracing
+	def name = "Pattern " + nameClass.description
 	def trace(writer: Writer, level: Int, reference: ReferenceFunction) =
 	{
 		basicTrace(writer, level, "element " + nameClass.description)
@@ -94,10 +95,11 @@ trait ElementPattern[Generated, ChildGenerated] extends UnmatchedPattern[Generat
 }
 
 class BasicElementPattern[Generated, ChildGenerated]
-	(val nameClass: NameClass, val childrenPattern: Pattern[ChildGenerated],
+	(val nameClass: NameClass, childrenPatternA: => Pattern[ChildGenerated],
 	val generateA: ChildGenerated => Generated,
 	val marshalTranslateA: Generated => Option[ChildGenerated]) extends ElementPattern[Generated, ChildGenerated]
 {
+	lazy val childrenPattern = childrenPatternA
 	def generate(actualName: QName, childValue: ChildGenerated): Generated = generateA(childValue)
 	def marshalTranslate(generatedName: QName, g: Generated) = marshalTranslateA(g)
 }

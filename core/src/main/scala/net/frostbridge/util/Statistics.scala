@@ -19,7 +19,8 @@
 package net.frostbridge.util
 
 abstract class Statistics
-{
+{ outer =>
+
 	def elements: Int
 	def attributes: Int
 	def textNodes: Int
@@ -36,24 +37,52 @@ abstract class Statistics
 	def comments: Int
 	def processingInstructions: Int
 	
-	override def toString =
+	private def buildList: List[(String, Int)] =
+		("Elements", elements) ::
+		("Element content", elementContent) ::
+		("Attributes", attributes) ::
+		("Text nodes", textNodes) ::
+		("Ordered", ordered) ::
+		("Unordered", unordered) ::
+		("Not allowed", notAllowed) ::
+		("Empty", empty) ::
+		("Choices", choices) ::
+		("Mixed choice", heteroChoices) ::
+		("Translating", translating) ::
+		("Repeats", repeat) ::
+		("Comments", comments) ::
+		("Processing Instructions", processingInstructions) ::
+		("Other", other) ::
+		Nil
+	
+	private def mapList(l: List[(String, Int)]) = l.map(x => "\n  " + x._1 + ":\t" + x._2)
+	private def compactFilter(x: (String, Int)): Boolean = x._2 != 0
+	def toCompactString = mapList(buildList.filter(compactFilter)).mkString
+	override def toString = buildList.map(x => "\n  " + x._1 + ":\t" + x._2).mkString(
 		"\nStatistics\n" +
-		"==========\n" +
-		"\n  Elements:\t" + elements +
-		"\n  Element content:\t" + elementContent +
-		"\n  Attributes:\t" + attributes +
-		"\n  Text nodes:\t" + textNodes +
-		"\n  Ordered:\t" + ordered +
-		"\n  Unordered:\t" + unordered +
-		"\n  Not allowed:\t" + notAllowed +
-		"\n  Empty:\t" + empty +
-		"\n  Choices:\t" + choices +
-		"\n  Mixed choice:\t" + heteroChoices +
-		"\n  Translating:\t" + translating +
-		"\n  Repeats:\t" + repeat +
-		"\n  Comments:\t" + comments +
-		"\n  Processing Instructions:\t" + processingInstructions +
-		"\n  Other:\t" + other + "\n"
+		"==========\n",
+		"",
+		"\n")
+		
+	def - (o: Statistics): Statistics =
+		new Statistics
+		{
+			val elements = outer.elements - o.elements
+			val attributes = outer.attributes - o.attributes
+			val textNodes = outer.textNodes - o.textNodes
+			val ordered = outer.ordered - o.ordered
+			val notAllowed = outer.notAllowed - o.notAllowed
+			val empty = outer.empty - o.empty
+			val other = outer.other - o.other
+			val elementContent = outer.elementContent - o.elementContent
+			val repeat = outer.repeat - o.repeat
+			val unordered = outer.unordered - o.unordered
+			val choices = outer.choices - o.choices
+			val heteroChoices = outer.heteroChoices - o.heteroChoices
+			val translating = outer.translating - o.translating
+			val comments = outer.comments - o.comments
+			val processingInstructions = outer.processingInstructions - o.processingInstructions
+		}
 }
 
 object Statistics
@@ -68,6 +97,7 @@ object Statistics
 	}
 	private def statistics(pattern: Pattern[_], stats: MutableStatistics)
 	{
+		if(!stats.seenPattern(pattern))
 		pattern match
 		{
 			case a: AttributePattern[_] => stats.attributes += 1
@@ -90,6 +120,9 @@ object Statistics
 	
 	private class MutableStatistics extends Statistics
 	{
+		private val seenPatterns = new java.util.HashSet[Pattern[_]]
+		def seenPattern(p: Pattern[_]): Boolean = !seenPatterns.add(p)
+		
 		var elements, attributes, textNodes, ordered, notAllowed, empty, other, elementContent, repeat,
 			unordered, choices, heteroChoices, translating, comments, processingInstructions: Int = _
 		

@@ -87,7 +87,7 @@ object BinaryCompoundPattern
 		requiredPair(p1, p2, (pA: Pattern[A], pB: Pattern[B]) => new UnorderedSequence(pA, pB))
 	def orderedSequence[A, B](p1: Pattern[A], p2: Pattern[B]) =
 		requiredPair(p1, p2, (pA: Pattern[A], pB: Pattern[B]) => new OrderedSequence(pA, pB))
-	def requiredPair[A, B](p1: Pattern[A], p2: Pattern[B], constructor: (Pattern[A], Pattern[B]) => Pattern[(A, B)]): Pattern[(A, B)] =
+	private def requiredPair[A, B](p1: Pattern[A], p2: Pattern[B], constructor: (Pattern[A], Pattern[B]) => Pattern[(A, B)]): Pattern[(A, B)] =
 	{
 		p1.ifValid {
 			p2.ifValid {

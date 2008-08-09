@@ -74,10 +74,10 @@ final case class Attribute(name: QName, value: String) extends Node
 	assume(value != null, "Attribute value cannot be null")
 	def write(writer: XMLStreamWriter) = writer.writeAttribute("", name.namespaceURI, name.localPart, value)
 	
-	override def toString = name.localPart + "=" + value
+	override def toString = name.localPart + "=\"" + value + "\""
 }
 
-final case class Element(name: QName)(content: List[Node]) extends Node
+final case class Element(name: QName, content: List[Node]) extends Node
 {
 	val (attributes, children) = content.partition(_.isInstanceOf[Attribute])
 	
@@ -89,7 +89,8 @@ final case class Element(name: QName)(content: List[Node]) extends Node
 		writer.writeEndElement()
 	}
 	
-	override def toString = "<" + name.localPart + " " + attributes + ">" + children + "</" + name.localPart + ">"
+	override def toString = "<" + name.localPart + " " + attributes.mkString(" ") + ">" +
+		children.mkString + "</" + name.localPart + ">"
 }
 final case class Text(text: String) extends Node
 {
