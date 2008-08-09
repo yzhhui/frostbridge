@@ -42,8 +42,9 @@ final class QName(val namespaceURI: String with NotNull, val localPart: String w
 			case _ => false
 		}
 	}
-	def equalsQName(qname: QName) =
-		namespaceURI == qname.namespaceURI && localPart == qname.localPart
+	def ===(qname: QName) = namespaceURI == qname.namespaceURI && localPart == qname.localPart
+	def equalsQName(qname: QName) = this === qname
+		
 
 	def description =
 		if(namespaceURI == "")

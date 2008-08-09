@@ -98,3 +98,9 @@ trait BasicAttributePattern[Generated] extends AttributePattern[Generated]
 
 class SimpleAttributePattern[Generated](val nameClass: NameClass, val value: ValueParser[Generated])
 	extends BasicAttributePattern[Generated]
+	
+class AdvancedAttributePattern[Generated](val nameClass: NameClass, val value: ValueParser[Generated],
+	generateNameA: Generated => Option[QName]) extends BasicAttributePattern[Generated]
+{
+	override def generateName(g: Generated) = generateNameA(g)
+}

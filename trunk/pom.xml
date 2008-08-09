@@ -117,6 +117,7 @@
 				</executions>
 				<configuration>
 					<scalaVersion>${scala.version}</scalaVersion>
+					<mainClass>${main.class}</mainClass>
 				</configuration>
 			</plugin>
 		</plugins>
@@ -129,7 +130,6 @@
 				<configuration>
 					<vscaladocVersion>${vscaladoc.version}</vscaladocVersion>
 					<scalaVersion>${scala.version}</scalaVersion>
-					<mainClass>${main.class}</mainClass>
 					<jvmArgs>
 						<jvmArg>-DpackageLinkDefs=${vscaladoc.linkdefs}</jvmArg>
 					</jvmArgs>

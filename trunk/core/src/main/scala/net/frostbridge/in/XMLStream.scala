@@ -276,9 +276,9 @@ private final class StAXStream(reader: XMLStreamReader2, config: StreamConfigura
 		protected[this] def tabs = "\t" * depth
 		
 		// this is only valid in a subclass constructor, since it references the current state of the reader
-		protected[this] def require(eventType: Int) = reader.require(eventType, null, null)
+		protected[this] final def require(eventType: Int) = reader.require(eventType, null, null)
 		
-		override def toString = {error("Node.toString should not be used.  Use description or toXMLLike as applicable."); ""}
+		override def toString = toXMLLike
 	}
 	private sealed abstract class ElementTagImpl extends NodeImpl with ElementTag
 	{
