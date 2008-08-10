@@ -18,13 +18,12 @@
 */
 package net.frostbridge
 
-import TranslatingPattern.translate
-import BinaryCompoundPattern._
+import PatternFactory._
 import PatternImpl._
 import Traceable._
 import java.io.Writer
 
-sealed trait BinaryCompoundPattern[A,B,C] extends UnmatchedPattern[C]
+private sealed trait BinaryCompoundPattern[A,B,C] extends UnmatchedPattern[C]
 {
 	type This = this.type
 	def traceFlattened(writer: Writer, level: Int, reference: ReferenceFunction)
@@ -56,9 +55,9 @@ sealed trait BinaryCompoundPattern[A,B,C] extends UnmatchedPattern[C]
 	def pattern2: Pattern[B]
 	def separator: String
 }
-object BinaryCompoundPattern
+trait CompoundPatternFactory
 {
-	def homogeneousChoice[Generated](p1: Pattern[Generated], p2: Pattern[Generated]): Pattern[Generated] =
+	final def homogeneousChoice[Generated](p1: Pattern[Generated], p2: Pattern[Generated]): Pattern[Generated] =
 	{
 		if(p1.valid)
 		{
@@ -70,7 +69,7 @@ object BinaryCompoundPattern
 		else
 			p2
 	}
-	def heterogeneousChoice[A,B](p1: Pattern[A], p2: Pattern[B]): Pattern[Either[A, B]] =
+	final def heterogeneousChoice[A,B](p1: Pattern[A], p2: Pattern[B]): Pattern[Either[A, B]] =
 	{
 		if(p1.valid)
 		{
@@ -83,9 +82,9 @@ object BinaryCompoundPattern
 			translate(p2, Right(_: B), (_: Either[A,B]).right.toOption)
 	}
 	
-	def unorderedSequence[A, B](p1: Pattern[A], p2: Pattern[B]) =
+	final def unorderedSequence[A, B](p1: Pattern[A], p2: Pattern[B]) =
 		requiredPair(p1, p2, (pA: Pattern[A], pB: Pattern[B]) => new UnorderedSequence(pA, pB))
-	def orderedSequence[A, B](p1: Pattern[A], p2: Pattern[B]) =
+	final def orderedSequence[A, B](p1: Pattern[A], p2: Pattern[B]) =
 		requiredPair(p1, p2, (pA: Pattern[A], pB: Pattern[B]) => new OrderedSequence(pA, pB))
 	private def requiredPair[A, B](p1: Pattern[A], p2: Pattern[B], constructor: (Pattern[A], Pattern[B]) => Pattern[(A, B)]): Pattern[(A, B)] =
 	{
@@ -96,7 +95,7 @@ object BinaryCompoundPattern
 					case Some(value1) =>
 						p2.matched match
 						{
-							case Some(value2) => EmptyPattern( (value1, value2) )
+							case Some(value2) => emptyPattern( (value1, value2) )
 							case None => translate(p2, (b: B) => (value1, b), (g: (A, B)) => Some(g._2) )
 						}
 					case None =>
@@ -111,7 +110,7 @@ object BinaryCompoundPattern
 	}
 
 }
-sealed trait BinaryRequired[A,B] extends BinaryCompoundPattern[A, B, (A,B)] with MarshalErrorTranslator[(A,B)]
+private sealed trait BinaryRequired[A,B] extends BinaryCompoundPattern[A, B, (A,B)] with MarshalErrorTranslator[(A,B)]
 {
 	lazy val matchEmpty =
 		for(value1 <- pattern1.matchEmpty; value2 <- pattern2.matchEmpty) yield
@@ -130,7 +129,7 @@ sealed trait BinaryRequired[A,B] extends BinaryCompoundPattern[A, B, (A,B)] with
 	}
 }
 
-final class HeterogeneousChoice[A, B](val pattern1: Pattern[A], val pattern2: Pattern[B])
+private final class HeterogeneousChoice[A, B](val pattern1: Pattern[A], val pattern2: Pattern[B])
 	extends BinaryCompoundPattern[A, B, Either[A,B]]
 {
 	checkAllowed(pattern1, pattern2)
@@ -149,7 +148,7 @@ final class HeterogeneousChoice[A, B](val pattern1: Pattern[A], val pattern2: Pa
 	protected def isSameType(other: Traceable) = other.isInstanceOf[HeterogeneousChoice[_,_]]
 }
 
-final class HomogeneousChoice[Generated](val pattern1: Pattern[Generated], val pattern2: Pattern[Generated])
+private final class HomogeneousChoice[Generated](val pattern1: Pattern[Generated], val pattern2: Pattern[Generated])
 	extends BinaryCompoundPattern[Generated,Generated,Generated]
 {
 	checkAllowed(pattern1, pattern2)
@@ -180,7 +179,7 @@ final class HomogeneousChoice[Generated](val pattern1: Pattern[Generated], val p
 	protected def isSameType(other: Traceable) = other.isInstanceOf[HomogeneousChoice[_]]
 }
 
-final class OrderedSequence[A,B](val pattern1: Pattern[A], val pattern2: Pattern[B]) extends BinaryRequired[A,B]
+private final class OrderedSequence[A,B](val pattern1: Pattern[A], val pattern2: Pattern[B]) extends BinaryRequired[A,B]
 {
 	checkNonEmpty(pattern1, pattern2)
 	checkAllowed(pattern1, pattern2)
@@ -199,7 +198,7 @@ final class OrderedSequence[A,B](val pattern1: Pattern[A], val pattern2: Pattern
 				pattern1.matchEmpty match
 				{
 					//pattern2 -> pattern2.derive(node) 12July2008
-					case Some(value) => derived | (EmptyPattern(value) :+: pattern2.derive(node))
+					case Some(value) => derived | (emptyPattern(value) :+: pattern2.derive(node))
 					case None => derived
 				}
 			}
@@ -219,7 +218,7 @@ final class OrderedSequence[A,B](val pattern1: Pattern[A], val pattern2: Pattern
 	protected def isSameType(other: Traceable) = other.isInstanceOf[OrderedSequence[_,_]]
 }
 
-final class UnorderedSequence[A,B](val pattern1: Pattern[A], val pattern2: Pattern[B]) extends BinaryRequired[A,B]
+private final class UnorderedSequence[A,B](val pattern1: Pattern[A], val pattern2: Pattern[B]) extends BinaryRequired[A,B]
 {
 	checkNonEmpty(pattern1, pattern2)
 	checkAllowed(pattern1, pattern2)

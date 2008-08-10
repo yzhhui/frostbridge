@@ -20,71 +20,27 @@ package net.frostbridge
 
 import java.io.Writer
 
-import PatternImpl.translateNotAllowed
 import Traceable.{basicTrace, ReferenceFunction}
 
 // classes to implement Pattern.derive
 
-/**
-* A pattern that is not completely matched yet.
-*/
-trait UnmatchedPattern[Generated] extends Pattern[Generated]
-{
-	final def matched: Option[Generated] = None
-}
 
-trait MarshalInvalid[Generated] extends Pattern[Generated]
+trait MarshalInvalid[Generated] extends UnmatchedPattern[Generated]
 {
 	final def marshal(g: Generated, reverseXML: List[out.Node]) = Left(RootMarshalException(g, this))
 }
-trait BasicMarshaller[Generated] extends Pattern[Generated]
+trait BasicMarshaller[Generated] extends UnmatchedPattern[Generated]
 {
 	final def marshal(g: Generated, reverseXML: List[out.Node]) = marshalImpl(g, reverseXML).toRight(RootMarshalException(g, this))
 	protected def marshalImpl(g: Generated, reverseXML: List[out.Node]): Option[List[out.Node]]
 }
-trait MarshalErrorTranslator[Generated] extends Pattern[Generated]
+trait MarshalErrorTranslator[Generated] extends UnmatchedPattern[Generated]
 {
 	def translateMarshalError(value: Generated)(e: Either[MarshalException[_], List[out.Node]]):
 		Either[MarshalException[Generated], List[out.Node]] =
 			e.left.map(error => ChainedMarshalException(value, this)(error :: Nil))
 }
-trait NameMarshaller[Generated] extends Pattern[Generated]
-{
-	def nameClass: NameClass
-	def generateName(g: Generated): Option[QName] =
-		nameClass match
-		{
-			case Name(n) => Some(n)
-			case _ => None
-		}
-}
 
-/**
-* A pattern that represents a complete match.
-*/
-final case class EmptyPattern[Generated](value: Generated) extends Pattern[Generated]
-{
-	def derive(node: in.Node) =
-	{
-		node match
-		{
-			case close: in.Close => this
-			case _ => NotAllowedPattern
-		}
-	}
-	
-	def nextPossiblePatterns = Nil
-	
-	def matchEmpty = Some(value)
-	
-	def matched = Some(value)
-	
-	def description = "Matched<" + value + ">"//error("Description is not valid for the Empty pattern")
-	
-	def trace(writer: Writer, level: Int, reference: ReferenceFunction) = basicTrace(writer, level, "()")
-	
-	def marshal(g: Generated, reverseXML: List[out.Node]) = Right(reverseXML)
-}
 
 /**
 * The instance of NotAllowedPattern that is used directly and then
@@ -98,16 +54,16 @@ object NotAllowedPattern extends NotAllowedPattern[Nothing]
 */
 sealed trait NotAllowedPattern[Generated] extends UnmatchedPattern[Generated] with MarshalInvalid[Generated]
 {
-	def derive(node: in.Node) = this
+	final def derive(node: in.Node) = this
 	
-	def matchEmpty = None
+	final def matchEmpty = None
 	
-	override def valid = false
+	override final def valid = false
 	
-	def nextPossiblePatterns = error("No possible patterns for the Not Allowed pattern")
-	def description = error("Description is not valid for the Not Allowed pattern")
+	final def nextPossiblePatterns = error("No possible patterns for the Not Allowed pattern")
+	final def description = error("Description is not valid for the Not Allowed pattern")
 	
-	def trace(writer: Writer, level: Int, reference: ReferenceFunction) = basicTrace(writer, level, "not allowed")
+	final def trace(writer: Writer, level: Int, reference: ReferenceFunction) = basicTrace(writer, level, "not allowed")
 }
 
 private object PatternImpl

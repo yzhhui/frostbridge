@@ -18,10 +18,9 @@
 */
 package net.frostbridge
 
-import TranslatingPattern.translate
 import PatternImpl._
 import Traceable.{basicTrace, ReferenceFunction}
-import BinaryCompoundPattern._
+import PatternFactory._
 import java.io.Writer
 
 /**
@@ -34,7 +33,7 @@ import java.io.Writer
 * TranslatedPatterns that generate the list on a call to matchEmpty (which will overflow
 * the stack for several thousand values in a sequence)
 */
-final class Repeat[Generated]
+private final class Repeat[Generated]
 	(val partial: Option[Pattern[Generated]],
 	 val repeated: Pattern[Generated],
 	 val accumulatedReverse: List[Generated],
@@ -49,8 +48,6 @@ final class Repeat[Generated]
 	assume(max >= min, "Minimum occurences must be less than the maximum occurences")
 	
 	def separator = ":+:"
-	
-	import Repeat.{repeat, translateLast}
 	
 	def derive(node: in.Node) =
 	{
@@ -216,14 +213,14 @@ final class Repeat[Generated]
 	}
 }
 
-object Repeat
+trait RepeatPatternFactory
 {
-	def repeat[G](repeated: Pattern[G], min: Int, max: UpperBound): Pattern[List[G]] =
+	final def repeat[G](repeated: Pattern[G], min: Int, max: UpperBound): Pattern[List[G]] =
 		repeat(None, repeated, Nil, min, max) 
-	def repeat[G](partial: Pattern[G], repeated: Pattern[G], accumulatedReverse: List[G],
+	private[frostbridge] final def repeat[G](partial: Pattern[G], repeated: Pattern[G], accumulatedReverse: List[G],
 		min: Int, max: UpperBound): Pattern[List[G]] =
 			repeat(Some(partial), repeated, accumulatedReverse, min, max)
-	def repeat[G](partial: Option[Pattern[G]], repeated: Pattern[G], accumulatedReverse: List[G],
+	private[frostbridge] final def repeat[G](partial: Option[Pattern[G]], repeated: Pattern[G], accumulatedReverse: List[G],
 		 min: Int, max: UpperBound): Pattern[List[G]] =
 	{
 		assume(min >= 0, "Minimum must be greater than or equal to zero")
@@ -241,7 +238,7 @@ object Repeat
 			{
 				repeated.matched match
 				{
-					case Some(value) => EmptyPattern(List(value))
+					case Some(value) => emptyPattern(List(value))
 					case None => new Repeat(partial, repeated, accumulatedReverse, min, max)
 				}
 			}
@@ -259,20 +256,16 @@ object Repeat
 					}
 				}
 			case None =>
-				checkRepeated(EmptyPattern(Nil))
+				checkRepeated(emptyPattern(Nil))
 		}
 	}
 	
-	private def translateLast[Generated](pattern: Pattern[Generated], accumulatedReverse: List[Generated]) =
-		TranslatingPattern.translate(pattern,
-			(g: Generated) => accumulatedReverse reverse_::: g :: Nil,
+	private[frostbridge] def translateLast[Generated](pattern: Pattern[Generated], accumulatedReverse: List[Generated]) =
+		translate(pattern, (g: Generated) => accumulatedReverse reverse_::: g :: Nil,
 			(l: List[Generated]) => l.firstOption)
 			
-	def optional[G](pattern: Pattern[G]): Pattern[Option[G]] =
-		EmptyPattern[Option[G]](None) | TranslatingPattern.translate(pattern, (g: G) => Some(g), (s: Option[G]) => s)
-		//TranslatingPattern.translate(repeat(pattern, 0, Finite(1)), (l: List[G]) => l.firstOption, o => Some(o.toList))
-	
-	implicit def intToBound(value: Int): UpperBound = Finite(value)
+	final def optional[G](pattern: Pattern[G]): Pattern[Option[G]] =
+		emptyPattern[Option[G]](None) | translate(pattern, (g: G) => Some(g), (s: Option[G]) => s)
 }
 sealed trait UpperBound extends NotNull
 {

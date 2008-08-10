@@ -1,10 +1,28 @@
+/*
+*  Copyright 2008, Mark Harrah
+*
+*	This file is part of Frostbridge.
+*
+*    Frostbridge is free software: you can redistribute it and/or modify
+*    it under the terms of the GNU Lesser General Public License as published by
+*    the Free Software Foundation, either version 2.1 of the License, or
+*    (at your option) any later version.
+*
+*    Frostbridge is distributed in the hope that it will be useful,
+*    but WITHOUT ANY WARRANTY; without even the implied warranty of
+*    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*    GNU Lesser General Public License for more details.
+*
+*    You should have received a copy of the GNU Lesser General Public License
+*    along with Frostbridge.  If not, see <http://www.gnu.org/licenses/>.
+*/
 package net.frostbridge
 
 import data.ValueParser
+import PatternFactory._
 
 class IgnoreAnyInNameClass(nameClass: NameClass)
 {
-	val unit2Unit = (u: Unit) => ()
 	val unit2None = (u: Unit) => None
 	val unitList2None = (a: List[Unit]) => ()
 	
@@ -16,49 +34,43 @@ class IgnoreAnyInNameClass(nameClass: NameClass)
 			def dataDescription = "any value"
 		}
 		
-	val anyElement: ElementPattern[Unit, Unit] = new BasicElementPattern(nameClass, anyPatterns, unit2Unit, unit2None)
-	val anyAttribute: AttributePattern[Unit] = new SimpleAttributePattern(nameClass, anyValue)
-	val anyText: TextPattern[Unit] = new BasicTextPattern(anyValue)
-	val anyComment: CommentPattern[Unit] = new BasicCommentPattern(anyValue)
-	val anyProcessingInstruction: ProcessingInstructionPattern[Unit] =
-		new ProcessingInstructionPattern[Unit]
-		{
-			def generate(target: String, data: String) = Some(())
-			def getTargetAndValue(u: Unit) = None
-			def description = "any processing instruction"
-		}
+	val anyElement: Pattern[Unit] =
+		generalElement(nameClass, anyPatterns,
+		(q: QName, u: Unit) => (),
+		(q: QName, u: Unit) => None,
+		unit2None)
+	
+	val anyAttribute: Pattern[Unit] = attribute(nameClass, anyValue, unit2None)
+	val anyText: Pattern[Unit] = textPattern(anyValue)
+	val anyComment: Pattern[Unit] = commentPattern(anyValue)
+	val anyProcessingInstruction: Pattern[Unit] =
+		generalProcessingInstructionPattern[Unit]("any processing instruction", (pi: in.ProcessingInstruction) => Some(pi), unit2None)
 	
 		
 	val any: Pattern[Unit] = anyElement | anyAttribute | anyText | anyComment | anyProcessingInstruction
-	val anyPatterns: Pattern[Unit] = TranslatingPattern.translate(any*, unitList2None, unit2None)
+	val anyPatterns: Pattern[Unit] = translate(any*, unitList2None, unit2None)
 }
 class IgnoreAnyInNamespace(ns: String) extends IgnoreAnyInNameClass(NsName(ns))
 object IgnoreAny extends IgnoreAnyInNameClass(AnyName)
 
 
 class PreserveAnyInNameClass(nameClass: NameClass)
-{ outer =>
+{
 	import out._
-	val anyElement: ElementPattern[Element, List[Node]] =
-		new ElementPattern[Element, List[Node]]
-		{
-			def nameClass = outer.nameClass
-			def childrenPattern = anyPatterns
-			def generate(actualName: QName, childValue: List[Node]) = Element(actualName, childValue)
-			def marshalTranslate(name: QName, e: Element) = Some(e.content)
-			override def generateName(e: Element) = Some(e.name)
-		}
+	val anyElement: Pattern[Element] =
+		generalElement(nameClass, 
+			anyPatterns,
+			(actualName: QName, childValue: List[Node]) => Element(actualName, childValue),
+			(generatedName: QName, e: Element) => Some(e.content),
+			(e: Element) => Some(e.name))
 	
-	val anyAttribute: AttributePattern[Attribute] =
-		new AttributePattern[Attribute]
-		{
-			def nameClass = outer.nameClass
-			override def contentDescription = "any"
-			def marshalImpl(a: Attribute) = Some(a)
-			def generate(attributeName: QName, attributeValue: String) = Some(Attribute(attributeName, attributeValue))
-		}
+	val anyAttribute: Pattern[Attribute] = 
+		generalAttribute(nameClass, 
+		"any", 
+		(name: QName, value: String) => Some(Attribute(name, value)),
+		(a: Attribute) => Some(a))
 		
-	val anyText: TextPattern[Text] =
+	val anyText: Pattern[Text] =
 	{
 		val textValue = new ValueParser[Text]
 		{
@@ -66,9 +78,9 @@ class PreserveAnyInNameClass(nameClass: NameClass)
 			def marshalToString(text: Text) = Some(text.text)
 			def dataDescription = "any text"
 		}
-		new BasicTextPattern[Text](textValue)
+		textPattern[Text](textValue)
 	}
-	val anyComment: CommentPattern[Comment] =
+	val anyComment: Pattern[Comment] =
 	{
 		val commentValue = new ValueParser[Comment]
 		{
@@ -76,15 +88,12 @@ class PreserveAnyInNameClass(nameClass: NameClass)
 			def marshalToString(comment: Comment) = Some(comment.text)
 			def dataDescription = "any text"
 		}
-		new BasicCommentPattern[Comment](commentValue)
+		commentPattern[Comment](commentValue)
 	}
-	val anyProcessingInstruction: ProcessingInstructionPattern[ProcessingInstruction] =
-		new ProcessingInstructionPattern[ProcessingInstruction]
-		{
-			def generate(target: String, data: String) = Some(ProcessingInstruction(target, data))
-			def getTargetAndValue(pi: ProcessingInstruction) = Some((pi.target, pi.data))
-			def description = "any processing instruction"
-		}
+	val anyProcessingInstruction: Pattern[ProcessingInstruction] =
+		generalProcessingInstructionPattern[ProcessingInstruction]("any processing instruction",
+			(pi: in.ProcessingInstruction) => Some(out.ProcessingInstruction(pi.target, pi.data)),
+			(pi: ProcessingInstruction) => Some(pi))
 		
 	val any: Pattern[Node] =
 	{
@@ -103,12 +112,10 @@ class PreserveAnyInNameClass(nameClass: NameClass)
 				case c: Comment => Left(Right(c))
 				case pi: ProcessingInstruction => Right(pi)
 			})
-		TranslatingPattern.translate(mixed, generate, unprocess)
+		translate(mixed, generate, unprocess)
 	}
 	
 	val anyPatterns: Pattern[List[Node]] = any*
-	
-	
 }
 
 class PreserveAnyInNamespace(ns: String) extends PreserveAnyInNameClass(NsName(ns))
