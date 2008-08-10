@@ -41,7 +41,7 @@ package net.frostbridge
 *	Text
 *	End tag
 */
-trait Pattern[Generated] extends Traceable with NotNull
+sealed trait Pattern[Generated] extends Traceable with NotNull
 {
 	/** Makes the Generated type parameter accessible to clients. */
 	final type GeneratedType = Generated
@@ -89,8 +89,7 @@ trait Pattern[Generated] extends Traceable with NotNull
 	*/
 	def marshal(g: Generated, reverseXML: List[out.Node]): Either[MarshalException[Generated], List[out.Node]]
 
-
-	import Repeat.{optional, repeat}
+	import PatternFactory._
 	
 	/**
 	* Produces a pattern that matches this pattern one or more times.
@@ -112,8 +111,6 @@ trait Pattern[Generated] extends Traceable with NotNull
 	*/
 	def apply(min: Int, max: UpperBound): Pattern[List[Generated]] = repeat(this, min, max)
 	
-	import BinaryCompoundPattern.{orderedSequence, unorderedSequence, heterogeneousChoice, homogeneousChoice}
-	
 	/**
 	* Produces a pattern that matches firstPattern and then this pattern in order.  Attributes
 	* are matched unordered.  Note that this is right associative.
@@ -133,9 +130,57 @@ trait Pattern[Generated] extends Traceable with NotNull
 	*/
 	def |+| [GeneratedOther](otherPattern: Pattern[GeneratedOther]): Pattern[Either[Generated,GeneratedOther]] =
 		heterogeneousChoice(this, otherPattern)
+		
 	/**
 	* Produces a pattern that matches otherPattern or this pattern.
 	*/
 	def | (otherPattern: Pattern[Generated]): Pattern[Generated] =
 		homogeneousChoice(this, otherPattern)
+}
+
+trait PatternFactory extends ElementPatternFactory with EmptyPatternFactory with AttributePatternFactory
+	with ContentPatternFactory with CompoundPatternFactory with RepeatPatternFactory with TranslatePatternFactory
+object PatternFactory extends PatternFactory
+
+
+private[frostbridge] trait EmptyPatternFactory
+{
+	def emptyPattern[Generated](value: Generated): Pattern[Generated] = new EmptyPattern[Generated](value)
+}
+
+/**
+* A pattern that is not completely matched yet.
+*/
+private[frostbridge] trait UnmatchedPattern[Generated] extends Pattern[Generated]
+{
+	final def matched: Option[Generated] = None
+}
+/**
+* A pattern that represents a complete match.
+*/
+private final class EmptyPattern[Generated](value: Generated) extends Pattern[Generated]
+{
+	import java.io.Writer
+	import Traceable.{basicTrace, ReferenceFunction}
+	def derive(node: in.Node) =
+	{
+		import PatternImpl.translateNotAllowed
+		node match
+		{
+			case close: in.Close => this
+			case _ => NotAllowedPattern
+		}
+	}
+	
+	def nextPossiblePatterns = Nil
+	
+	def matchEmpty = Some(value)
+	
+	def matched = Some(value)
+	
+	def description = "Matched<" + value + ">"//error("Description is not valid for the Empty pattern")
+	
+	def trace(writer: Writer, level: Int, reference: ReferenceFunction) = basicTrace(writer, level, "()")
+	
+	def marshal(g: Generated, reverseXML: List[out.Node]) = Right(reverseXML)
 }

@@ -21,12 +21,54 @@ package net.frostbridge
 import java.io.Writer
 import Traceable.{basicTrace, ReferenceFunction}
 import PatternImpl.translateNotAllowed
+import PatternFactory._
 import data.ValueParser
+
+private[frostbridge] trait ContentPatternFactory
+{
+	def textPattern[Generated](contentA: ValueParser[Generated]): Pattern[Generated] =
+		new TextPattern[Generated]
+		{
+			val content = contentA
+		}
+		
+	def commentPattern[Generated](contentA: ValueParser[Generated]): Pattern[Generated] =
+		new CommentPattern[Generated]
+		{
+			val content = contentA
+		}
+		
+	def processingInstructionPattern[Generated](target: String, content: ValueParser[Generated]): Pattern[Generated] =
+		new BasicPIValuePattern[Generated](target, content)
+		
+	def processingInstructionPattern[Generated]
+		(targetAllowedA: String => Boolean, targetDescriptionA: String, dataA: ValueParser[Generated],
+		getTargetA: Generated => Option[String]) =
+			new PIValuePattern[Generated]
+			{
+				def targetAllowed(target: String) = targetAllowedA(target)
+				val targetDescription = targetDescriptionA
+				val data = dataA
+				def getTarget(g: Generated) = getTargetA(g)
+			}
+		
+	def generalProcessingInstructionPattern[Generated] (descriptionA: String,
+		generateA: in.ProcessingInstruction => Option[Generated],
+		getTargetAndValueA: Generated => Option[out.ProcessingInstruction]): Pattern[Generated] =
+	{
+		new ProcessingInstructionPattern[Generated]
+		{
+			val description = descriptionA
+			def generate(pi: in.ProcessingInstruction) = generateA(pi)
+			def getTargetAndValue(g: Generated) = getTargetAndValueA(g)
+		}
+	}
+}
 
 /**
 * A pattern that matches text and generates a value using a ValueParser.
 */
-trait TextPattern[Generated] extends ContentPattern[Generated]
+private sealed trait TextPattern[Generated] extends ContentPattern[Generated]
 {
 	lazy val matchEmpty = content.generate("")
 	def content: ValueParser[Generated]
@@ -40,7 +82,7 @@ trait TextPattern[Generated] extends ContentPattern[Generated]
 			{
 				content.generate(text.value) match
 				{
-					case Some(value) => EmptyPattern(value)
+					case Some(value) => emptyPattern(value)
 					case None => NotAllowedPattern
 				}
 			}
@@ -51,11 +93,8 @@ trait TextPattern[Generated] extends ContentPattern[Generated]
 	def description = content.dataDescription
 }
 
-class BasicTextPattern[Generated](val content: ValueParser[Generated]) extends TextPattern[Generated]
-
-
 /** A pattern that has some single content value (Text or a Comment) */
-trait ContentPattern[Generated] extends UnmatchedPattern[Generated] with BasicMarshaller[Generated]
+private sealed trait ContentPattern[Generated] extends UnmatchedPattern[Generated] with BasicMarshaller[Generated]
 {
 	def content: ValueParser[Generated]
 	
@@ -75,7 +114,7 @@ trait ContentPattern[Generated] extends UnmatchedPattern[Generated] with BasicMa
 /**
 * A pattern that matches a comment and generates a value from the comment content using a ValueParser.
 */
-trait CommentPattern[Generated] extends ContentPattern[Generated]
+private sealed trait CommentPattern[Generated] extends ContentPattern[Generated]
 {
 	lazy val matchEmpty = None
 	def derive(node: in.Node) =
@@ -86,7 +125,7 @@ trait CommentPattern[Generated] extends ContentPattern[Generated]
 			{
 				content.generate(comment.content) match
 				{
-					case Some(value) => EmptyPattern(value)
+					case Some(value) => emptyPattern(value)
 					case None => NotAllowedPattern
 				}
 			}
@@ -99,14 +138,12 @@ trait CommentPattern[Generated] extends ContentPattern[Generated]
 	protected def nodeFromString(string: String) = out.Comment(string)
 }
 
-class BasicCommentPattern[Generated](val content: ValueParser[Generated]) extends CommentPattern[Generated]
-
 /** A pattern that matches a processing instruction and generates a value from its 
 * target and data. */
-trait ProcessingInstructionPattern[Generated] extends UnmatchedPattern[Generated] with BasicMarshaller[Generated]
+private trait ProcessingInstructionPattern[Generated] extends UnmatchedPattern[Generated] with BasicMarshaller[Generated]
 {
-	def generate(target: String, data: String): Option[Generated]
-	def getTargetAndValue(g: Generated): Option[(String, String)]
+	def generate(pi: in.ProcessingInstruction): Option[Generated]
+	def getTargetAndValue(g: Generated): Option[out.ProcessingInstruction]
 	
 	lazy val matchEmpty = None
 	
@@ -114,19 +151,19 @@ trait ProcessingInstructionPattern[Generated] extends UnmatchedPattern[Generated
 	{
 		node match
 		{
-			case pi: in.ProcessingInstruction => generate(pi.target, pi.data).map(EmptyPattern(_)).getOrElse(NotAllowedPattern)
+			case pi: in.ProcessingInstruction => generate(pi).map(emptyPattern(_)).getOrElse(NotAllowedPattern)
 			case close: in.Close => this
 			case _ => NotAllowedPattern
 		}
 	}
 	def marshalImpl(g: Generated, reverseXML: List[out.Node]): Option[List[out.Node]] =
-		for((target, value) <- getTargetAndValue(g)) yield
-			out.ProcessingInstruction(target, value) :: reverseXML
+		for(pi <- getTargetAndValue(g)) yield
+			pi :: reverseXML
 			
 	def trace(writer: Writer, level: Int, reference: ReferenceFunction) = basicTrace(writer, level, description)
 	def nextPossiblePatterns = List(this)
 }
-trait PIValuePattern[Generated] extends ProcessingInstructionPattern[Generated]
+private[frostbridge] trait PIValuePattern[Generated] extends ProcessingInstructionPattern[Generated]
 {
 	def targetAllowed(target: String): Boolean
 	def targetDescription: String
@@ -138,18 +175,19 @@ trait PIValuePattern[Generated] extends ProcessingInstructionPattern[Generated]
 		for(target <- getTarget(g);
 			value <- data.marshalToString(g))
 		yield
-			(target, value)
+			out.ProcessingInstruction(target, value)
 	}
-	def generate(target: String, dataValue: String): Option[Generated] =
+	def generate(pi: in.ProcessingInstruction): Option[Generated] =
 	{
-		if(targetAllowed(target))
-			data.generate(dataValue)
+		if(targetAllowed(pi.target))
+			data.generate(pi.data)
 		else
 			None
 	}
 	def description = "processing instruction {target='" + targetDescription + "', data='" + data.dataDescription + "'}"
 }
-class BasicPIValuePattern[Generated](val target: String, val data: ValueParser[Generated]) extends PIValuePattern[Generated]
+private final class BasicPIValuePattern[Generated](val target: String, val data: ValueParser[Generated])
+	extends PIValuePattern[Generated]
 {
 	assume(target != null, "Processing instruction target cannot be null")
 	assume(!target.isEmpty, "Processing instruction target cannot be empty")

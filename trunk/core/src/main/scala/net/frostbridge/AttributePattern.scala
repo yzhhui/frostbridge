@@ -20,6 +20,7 @@ package net.frostbridge
 
 import PatternImpl._
 import Traceable._
+import PatternFactory._
 import data.ValueParser
 import java.io.Writer
 
@@ -27,8 +28,8 @@ import java.io.Writer
 * A pattern that matches an attribute.  This pattern allows an attribute to be matched
 * by name and value.
 */
-trait AttributePattern[Generated] extends UnmatchedPattern[Generated]
-	with BasicMarshaller[Generated] with NameMarshaller[Generated] 
+private sealed trait AttributePattern[Generated] extends UnmatchedPattern[Generated]
+	with BasicMarshaller[Generated]
 {
 	/**
 	* Describes the set of allowed names of an attribute matched by this pattern
@@ -48,7 +49,7 @@ trait AttributePattern[Generated] extends UnmatchedPattern[Generated]
 			case attribute: in.Attribute =>
 			{
 				if(nameClass.matches(attribute.name))
-					generate(attribute.name, attribute.value).map(EmptyPattern(_)).getOrElse(NotAllowedPattern)
+					generate(attribute.name, attribute.value).map(emptyPattern(_)).getOrElse(NotAllowedPattern)
 				else
 					NotAllowedPattern
 			}
@@ -79,9 +80,10 @@ trait AttributePattern[Generated] extends UnmatchedPattern[Generated]
 /** An implementation of AttributePattern that uses a ValueParser
 * to determine the value to be matched.
 */
-trait BasicAttributePattern[Generated] extends AttributePattern[Generated]
+private sealed abstract class BasicAttributePattern[Generated]
+	(val nameClass: NameClass, value: ValueParser[Generated]) extends AttributePattern[Generated]
 {
-	def value: ValueParser[Generated]
+	def generateName(g: Generated): Option[QName]
 	
 	def contentDescription = value.dataDescription
 	
@@ -95,12 +97,32 @@ trait BasicAttributePattern[Generated] extends AttributePattern[Generated]
 			out.Attribute(name, value)
 	}
 }
-
-class SimpleAttributePattern[Generated](val nameClass: NameClass, val value: ValueParser[Generated])
-	extends BasicAttributePattern[Generated]
-	
-class AdvancedAttributePattern[Generated](val nameClass: NameClass, val value: ValueParser[Generated],
-	generateNameA: Generated => Option[QName]) extends BasicAttributePattern[Generated]
+private final class SimpleAttributePattern[Generated](name: Name, value: ValueParser[Generated])
+	extends BasicAttributePattern[Generated](name, value)
 {
-	override def generateName(g: Generated) = generateNameA(g)
+	def generateName(g: Generated) = Some(name.name)
+}
+
+private[frostbridge] trait AttributePatternFactory
+{
+	def attribute[Generated](name: Name, value: ValueParser[Generated]): Pattern[Generated] =
+		new SimpleAttributePattern[Generated](name, value)
+	
+	def attribute[Generated](nameClass: NameClass, value: ValueParser[Generated],
+		generateNameA: Generated => Option[QName]): Pattern[Generated] =
+			new BasicAttributePattern[Generated](nameClass, value)
+			{
+				def generateName(g: Generated) = generateNameA(g)
+			}
+		
+	def generalAttribute[Generated](nameClassA: NameClass, contentDescriptionA: String,
+		generateA: (QName, String) => Option[Generated],
+		marshalA: Generated => Option[out.Attribute]) =
+			new AttributePattern[Generated]
+			{
+				val nameClass = nameClassA
+				val contentDescription = contentDescriptionA
+				def generate(attributeName: QName, attributeValue: String) = generateA(attributeName, attributeValue)
+				def marshalImpl(g: Generated) = marshalA(g)
+			}
 }

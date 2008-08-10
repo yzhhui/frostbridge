@@ -41,8 +41,7 @@ package net.frostbridge.example
 
 // The main library package is net.frostbridge
 import net.frostbridge._
-// net.frostbridge.Predefined contains shorter aliases for patterns, useful implicits, and common data types
-import Predefined._
+import Implicits._
 
 import java.io.{File, OutputStreamWriter, StringWriter}
 import java.net.URL
@@ -122,6 +121,8 @@ object SiteMapExample
 	{
 		// The net.frostbridge.data package provides data types.
 		import data._
+		// PatternFactory contains methods for creating patterns
+		import PatternFactory._
 		
 		// Here we define the text element patterns.  The TextElement constructor accepts a NameClass instance
 		//   and a data.ValueParser instance. The NameClass instance defines the element names that the pattern
@@ -132,15 +133,15 @@ object SiteMapExample
 		//   prepend a namespace URI.  Predefined provides another implicit that converts the QName to a
 		//   NameClass that matches names exactly the same as that QName.  See the NameClass subclasses
 		//   for other possibilities.
-		val location = new TextElement(ns :: "loc", AnyURL)
-		val lastModified = new TextElement(ns :: "lastmod", AnyDateTime)
+		val location = textElement(ns :: "loc", AnyURL)
+		val lastModified = textElement(ns :: "lastmod", AnyDateTime)
 		// Enumerations are slightly tricky because of certain difficulties with inner types (see also the
 		//   enumeration definition at the bottom of this example).  Here we have to explicitly define the
 		//   type that the TextElement corresponds to.
-		val changeFrequency = new TextElement[Frequency#Value](ns :: "changefreq", new EnumerationByName(Frequency, "frequency"))
+		val changeFrequency = textElement[Frequency#Value](ns :: "changefreq", new EnumerationByName(Frequency, "frequency"))
 		// Predefined defines an implicit to convert a double (or integer) to a Ranged instance, which defines the 'to' and 'until'
 		// methods similarly to scala.Range and can be used to restrict the allowed values of a number.
-		val priority = new TextElement(ns :: "priority", new RangedDouble(0.0 to 1.0))
+		val priority = textElement(ns :: "priority", new RangedDouble(0.0 to 1.0))
 		
 		// Here we declare the main pattern, which defines the content of a 'url' element.
 		//   :+: creates an ordered sequence. (+++ creates an unordered sequence and | creates a set of options.
@@ -161,10 +162,10 @@ object SiteMapExample
 		//   of constructing the nested pairs expected by the ordered and unordered sequence patterns.
 		def urlMarshal(l: Location) = Some(l.location :+: l.lastModified :+: l.changeFrequency :+: l.priority)
 		// Here we tie everything together to declare a 'url ' element
-		val url = new Element(ns :: "url", urlPattern, urlGenerate, urlMarshal)
+		val url = element(ns :: "url", urlPattern, urlGenerate, urlMarshal)
 		// Here we define the root element as one or more 'url' elements using the postfix + operator.
 		//  + is defined on Pattern, as are ? (to define an optional pattern) and * (to match a pattern zero or more times).
-		new Element(ns :: "urlset", url+, SiteMap(_: List[Location]), map => Some(map.locations))
+		element(ns :: "urlset", url+, SiteMap(_: List[Location]), map => Some(map.locations))
 		
 		// Here is a summary of creating a sequence pattern for use as the content of an element.
 		// We use the following existing definitions:
@@ -181,7 +182,7 @@ object SiteMapExample
 		//     using the implicit to the Anchor helper type and the +++ operator defined on Anchor:
 		//      val marshal = (abc: ABC) => Some(abc.a +++ abc.b +++ abc.c)
 		// 4) The pattern and the mappings are used as arguments to create an element pattern:
-		//      new Element(name, p, unmarshal, marshal)
+		//      element(name, p, unmarshal, marshal)
 	}
 }
 

@@ -47,7 +47,7 @@ private[in] trait InputFactory extends NotNull
 		setProperty(P_PRESERVE_LOCATION, preserveLocation)
 		setProperty(P_REPORT_CDATA, reportCDATA)
 		setProperty(SUPPORT_DTD, supportDTD)
-		setProperty(IS_SUPPORTING_EXTERNAL_ENTITIES, false)
+		setProperty(IS_SUPPORTING_EXTERNAL_ENTITIES, true)
 		setProperty(IS_REPLACING_ENTITY_REFERENCES, true)
 		setProperty(IS_VALIDATING, validate)
 		setProperty(IS_COALESCING, coalesce)

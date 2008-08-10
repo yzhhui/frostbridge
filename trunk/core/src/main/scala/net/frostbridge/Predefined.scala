@@ -18,17 +18,6 @@
 */
 package net.frostbridge
 
-trait Aliases
-{
-	// Abbreviated aliases for some patterns
-	type Attribute[Generated] = SimpleAttributePattern[Generated]
-	type Element[Generated, ChildGenerated] = BasicElementPattern[Generated, ChildGenerated]
-	type TextElement[Generated] = TextElementPattern[Generated]
-	type Text[Generated] = BasicTextPattern[Generated]
-	type Comment[Generated] = BasicCommentPattern[Generated]
-}
-object Aliases extends Aliases
-
 trait Implicits
 {
 	import data._
@@ -40,25 +29,12 @@ trait Implicits
 	implicit def double2Ranged(value: Double): Ranged[Double] = Ranged.double2Ranged(value)
 	implicit def int2Ranged(value: Int): Ranged[Int] = Ranged.int2Ranged(value)
 	implicit def any2Anchor[A](a: A): Anchor[A] = new Anchor[A](a)
+	implicit def intToBound(value: Int): UpperBound = Finite(value)
 }
+/** The Implicits object collects as many of the useful implicits for client code to
+* import from one place. */
 object Implicits extends Implicits
 
-trait PredefinedAttributes
-{
-	import data._
-	
-	// Simplified constructors for some patterns
-	def Any_@(nameClass: NameClass) = new SimpleAttributePattern[String](nameClass, AnyString)
-	def A1_@(nameClass: NameClass) = new SimpleAttributePattern[String](nameClass, AlphanumericString)
-	def Double_@(nameClass: NameClass) = new SimpleAttributePattern[Double](nameClass, AnyDouble)
-}
-object PredefinedAttributes extends PredefinedAttributes
-
-/** The Predefined object collects as many of the useful implicits for client code to
-* import from one place.  Additionally, abbreviated pattern names and some simplified
-* pattern creators are provided.
-*/
-object Predefined extends Aliases with Implicits with PredefinedAttributes
 
 /** Left associative pair construction/deconstruction */
 object +++
