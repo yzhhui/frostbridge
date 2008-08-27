@@ -5,7 +5,7 @@ This example is intended to provide an initial presentation of Frostbridge.  It 
 
 The example code first constructs the pattern, which is the template for binding.  It then uses the pattern to unmarshal a sitemap XML document to a SiteMap object (defined in the example code).  The example then uses the pattern to marshal the object back to XML.
 
-The example assumes you have [http://www.scala-lang.org Scala] version 2.7.1 installed and that you download everything in the following section to the same directory.
+The example assumes you have [http://www.scala-lang.org Scala] version 2.7.1 or higher installed and that you download everything in the following section to the same directory.
 
 
 
@@ -14,7 +14,7 @@ The example assumes you have [http://www.scala-lang.org Scala] version 2.7.1 ins
   * The Frostbridge [http://frostbridge.googlecode.com/files/frostbridge-0.1.jar core library]
   * The [http://frostbridge.googlecode.com/files/frostbridge-sitemap-example-0.1.jar sitemap example]
   * The [http://woodstox.codehaus.org/3.2.6/wstx-lgpl-3.2.6.jar Woodstox parser] (the only runtime dependency for Frostbridge)
-  * The sitemap example [http://frostbridge.googlecode.com/svn/trunk/examples/sitemap/src/main/scala/net/frostbridge/example/SiteMap.scala  source code]
+  * The sitemap example [http://frostbridge.googlecode.com/svn/trunk/examples/sitemap/src/main/scala/net/frostbridge/example/SiteMap.scala  source code] for reference and inline comments
   * Some sitemap XML documents.  For example:
    * A large (~4 MB) sitemap is available at http://www.google.com/sitemap.xml
    * A smaller sitemap is the [https://www.google.com/webmasters/tools/docs/en/protocol.html#sitemapXMLExample Sample XML Sitemap] on the Google Webmaster Tools page.
