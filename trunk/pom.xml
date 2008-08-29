@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>net.frostbridge</groupId>
 	<artifactId>frostbridge-root</artifactId>
-	<version>0.1-SNAPSHOT</version>
+	<version>0.2-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<name>Frostbridge Root</name>
 	<inceptionYear>2008</inceptionYear>
@@ -22,16 +22,37 @@
 		</license>
 	</licenses>
 	
+	<mailingLists>
+		<mailingList>
+			<name>Frostbridge Google Group</name>
+			<archive>http://groups.google.com/group/frostbridge</archive>
+			<post>http://groups.google.com/group/frostbridge</post>
+			<subscribe>http://groups.google.com/group/frostbridge/subscribe</subscribe>
+		</mailingList>
+	</mailingLists>
+	<scm>
+		<connection>scm:svn:http://frostbridge.googlecode.com/svn/trunk/</connection>
+		<developerConnection>scm:svn:https://frostbridge.googlecode.com/svn/trunk/</developerConnection>
+	</scm>
+	<issueManagement>
+		<system>google</system>
+		<url>http://code.google.com/p/frostbridge/issues/</url>
+	</issueManagement>
+	
+	<!-- The project is broken up into the main library and the examples -->
 	<modules>
 		<module>examples</module>
 		<module>core</module>
 	</modules>
 	
+	<!-- These properties define the versions of components required.-->
 	<properties>
-		<scala.version>2.7.1</scala.version>
+		<scala.version>2.7.2-rc1</scala.version>
 		<woodstox.version>3.2.6</woodstox.version>
-		<scalacheck.version>1.3</scalacheck.version>
-		<vscaladoc.version>1.1</vscaladoc.version>
+		<scalacheck.version>1.4</scalacheck.version>
+		<vscaladoc.version>1.2-SNAPSHOT</vscaladoc.version>
+		<specs.version>1.3.1</specs.version>
+		<scala.plugin.version>2.7.1</scala.plugin.version>
 	</properties>
 	
 	<repositories>
@@ -50,6 +71,8 @@
 		</pluginRepository>
 	</pluginRepositories>
 	
+	<!-- This sections configures the dependencies used throughout the project.
+		  It provides a single place to specify versions and scopes. -->
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
@@ -58,11 +81,12 @@
 				<version>${scala.version}</version>
 				<scope>compile</scope>
 			</dependency>
+			<!-- for the console -->
 			<dependency>
 				<groupId>org.scala-lang</groupId>
 				<artifactId>scala-compiler</artifactId>
 				<version>${scala.version}</version>
-				<scope>compile</scope>
+				<scope>test</scope>
 			</dependency>
 			<dependency>
 				<groupId>org.codehaus.woodstox</groupId>
@@ -100,6 +124,7 @@
 		</dependency>
 	</dependencies>
 		
+	<!-- Specifies the build process.  This is inherited by the modules. -->
 	<build>
 		<sourceDirectory>src/main/scala</sourceDirectory>
 		<testSourceDirectory>src/test/scala</testSourceDirectory>
@@ -107,6 +132,7 @@
 			<plugin>
 				<groupId>org.scala-tools</groupId>
 				<artifactId>maven-scala-plugin</artifactId>
+				<version>${scala.plugin.version}</version>
 				<executions>
 					<execution>
 						<goals>
@@ -118,19 +144,33 @@
 				<configuration>
 					<scalaVersion>${scala.version}</scalaVersion>
 					<mainClass>${main.class}</mainClass>
+					<!-- These are passed to scalac during compilation-->
+					<args>
+						<!--<arg>-optimise</arg>
+						<arg>-Xdisable-assertions</arg>
+						<arg>-Yclosure-elim</arg>
+						<arg>-explaintypes</arg>-->
+						<arg>-unchecked</arg>
+						<arg>-deprecation</arg>
+					</args>
 				</configuration>
 			</plugin>
 		</plugins>
 	</build>
+	<!-- Specifies report generation and is used by the modules. -->
 	<reporting>
 		<plugins>
 			<plugin>
 				<groupId>org.scala-tools</groupId>
 				<artifactId>maven-scala-plugin</artifactId>
+				<version>${scala.plugin.version}</version>
 				<configuration>
+					<!-- this declaration indicates vscaladoc should be used instead of scaladoc -->
 					<vscaladocVersion>${vscaladoc.version}</vscaladocVersion>
 					<scalaVersion>${scala.version}</scalaVersion>
 					<jvmArgs>
+						<!-- This declares the file containing the location
+							  for the API documentation for third-party packages. -->
 						<jvmArg>-DpackageLinkDefs=${vscaladoc.linkdefs}</jvmArg>
 					</jvmArgs>
 				</configuration>

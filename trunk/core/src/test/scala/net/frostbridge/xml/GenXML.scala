@@ -40,8 +40,8 @@ object ArbitraryXML
 	
 	import GenXMLEvent.{contentConfig, stringConfig}
 	val defaultContentConfig: ContentConfig = contentConfig(2.0, 2, 2.0)
-	val defaultStringConfig: StringConfig = stringConfig(3.0, 5.0, 3.5, 11.0, 5)
-	val defaultNamespaces: Option[Int] = Some(3)
+	val defaultStringConfig: StringConfig = stringConfig(3.0, 5.0, 5)
+	val defaultNamespaces: NamespaceGenerator = namespaceConfig(3.5, 11.0, Some(3))
 	val defaultXMLConfig: XMLConfig = new XMLConfig(defaultContentConfig, defaultStringConfig, defaultNamespaces)
 }
 
@@ -54,10 +54,10 @@ object GenXMLEvent
 		{
 			(local: String) =>
 			{
-				config.namespace match
+				config.namespaces.namespace match
 				{
-					case Some(nsG) => for(ns <- nsG) yield new QName(ns.toString, local)
-					case None => Gen { (param: Params) => Some(new QName(local)) }
+					case Some(nsG) => for(ns <- nsG) yield new QName(ns, local)
+					case None => Gen.value(new QName(local))
 				}
 			}
 		}
@@ -79,12 +79,12 @@ object GenXMLEvent
 			config.factory.createComment(s)
 	
 	def processingInstruction(implicit config: XMLConfig): Gen[ProcessingInstruction] =
-		for(target <- name;
+		for(target <- name(config);
 			data <- commonString(config.strings.contentLength)) yield
 			config.factory.createProcessingInstruction(target, data)
 	
 	def attribute(implicit config: XMLConfig): Gen[Attribute] =
-		for(nameString <- (qname(name) suchThat { "xmlns" != _.getPrefix });
+		for(nameString <- (qname(name) suchThat {q => !List("xmlns", "xml").contains(q.getPrefix)});
 			value <- commonString(config.strings.contentLength)) yield
 			config.factory.createAttribute(nameString, value)
 			
@@ -158,19 +158,19 @@ object GenXMLEvent
 		}
 	def contentConfig(averageChildren: Double, averageDepth: Int, averageAttributes: Double) =
 		new ContentConfig(poisson(averageChildren), average(averageDepth), poisson(averageAttributes), 2 * averageDepth)
-	def stringConfig(averageContentLength: Double, averageNameLength: Double, averageSchemeLength: Double,
-			averageSSPLength: Double, expectedCData: Int) =
-		new StringConfig(poisson(averageContentLength), poisson(averageNameLength), poisson(averageSchemeLength),
-			poisson(averageSSPLength), average(expectedCData))
+	def stringConfig(averageContentLength: Double, averageNameLength: Double, expectedCData: Int) =
+		new StringConfig(poisson(averageContentLength), poisson(averageNameLength), average(expectedCData))
+	def namespaceConfig(averageSchemeLength: Double, averageSSPLength: Double, namespaceCount: Option[Int]) =
+		new NamespaceGenerator(poisson(averageSchemeLength), poisson(averageSSPLength), namespaceCount)
 }
 
 object GenXMLStrings
 {
-	def name(implicit config: XMLConfig): Gen[String] =
+	def name(implicit config: XMLConfig): Gen[String] = name(config.namespaces.namespacesEnabled, config.strings.nameLength)
+	def name(namespacesEnabled: Boolean, nameLength: Gen[Int]): Gen[String] =
 	{
-		val (startG, mainG) =
-			if(config.namespaces_?) (ncnameStart, ncnameChar) else (nameStart, nameChar)
-		for(length <- config.strings.nameLength; start <- startG; main <- vectorOf(length-1, mainG)) yield
+		val (startG, mainG) = if(namespacesEnabled) (ncnameStart, ncnameChar) else (nameStart, nameChar)
+		for(length <- nameLength; start <- startG; main <- vectorOf(length-1, mainG)) yield
 			new String((start :: main).toArray)
 	}
 		

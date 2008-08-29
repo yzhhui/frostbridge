@@ -18,6 +18,7 @@
 */
 package net.frostbridge
 
+import util.TList
 import PatternImpl._
 import Traceable.{basicTrace, ReferenceFunction}
 import PatternFactory._
@@ -29,16 +30,17 @@ import java.io.Writer
 * This class is optimized so that the stack doesn't overflow when matching a long sequence.
 * It represents
 *	partial :+: (repeated {min, max})
-* in a way that accumulates matched values in reverse in a List instead of piling up
+* in a way that accumulates matched values in reverse in a TList instead of piling up
 * TranslatedPatterns that generate the list on a call to matchEmpty (which will overflow
 * the stack for several thousand values in a sequence)
 */
 private final class Repeat[Generated]
 	(val partial: Option[Pattern[Generated]],
 	 val repeated: Pattern[Generated],
-	 val accumulatedReverse: List[Generated],
-	 val min: Int, val max: UpperBound)
-	extends UnmatchedPattern[List[Generated]] with MarshalErrorTranslator[List[Generated]]
+	 val accumulatedReverse: TList[Generated],
+	 val min: Int,
+	 val max: UpperBound)
+	extends UnmatchedPattern[Seq[Generated]] with MarshalErrorTranslator[Seq[Generated]]
 {
 	partial.foreach(checkNonEmpty)
 	partial.foreach(checkAllowed)
@@ -49,7 +51,22 @@ private final class Repeat[Generated]
 	
 	def separator = ":+:"
 	
-	def derive(node: in.Node) =
+	lazy val hash = List(getClass, partial, repeated, accumulatedReverse, min, max).hashCode
+	override def equals(other: Any) =
+	{
+		other match
+		{
+			case r: Repeat[_] => (this eq r) ||
+			{
+				(accumulatedReverse == r.accumulatedReverse) && min == r.min && max == r.max &&
+				(repeated eq r.repeated) && partial.isDefined == r.partial.isDefined &&
+				(!partial.isDefined || (partial.get eq r.partial.get))
+			}
+			case _ => false
+		}
+	}
+	
+	private[frostbridge] final def deriveImpl(node: in.Node)(implicit o: Optimize) =
 	{
 		partial match
 		{
@@ -76,13 +93,24 @@ private final class Repeat[Generated]
 			}
 		}
 	}
-	private def repeatDerive(node: in.Node, prependValue: Option[Generated]): Pattern[List[Generated]] =
-	{
-		reducedBounds match
+	private def repeatDerive(node: in.Node, prependValue: Option[Generated])(implicit o: Optimize): Pattern[Seq[Generated]] =
+		node match
 		{
-			case Some((newMin, newMax)) =>
-				repeat(repeated.derive(node), repeated, prependValue.toList ::: accumulatedReverse, newMin, newMax)
-			case None => translateLast(repeated.derive(node), accumulatedReverse)
+			case close: in.Close => repeat(None, repeated.derive(close), accumulate(prependValue), min, max)
+			case _ =>
+				reducedBounds match
+				{
+					case Some((newMin, newMax)) => repeat(repeated.derive(node), repeated, accumulate(prependValue), newMin, newMax)
+					case None => translateLast(repeated.derive(node), accumulatedReverse)
+				}
+		}
+		
+	private def accumulate(prependValue: Option[Generated]) =
+	{
+		prependValue match
+		{
+			case Some(v) => v :: accumulatedReverse
+			case None => accumulatedReverse
 		}
 	}
 	
@@ -94,25 +122,26 @@ private final class Repeat[Generated]
 			Some(( if(min == 0) 0 else (min - 1), max.decrement ))
 	}
 	
-	lazy val matchEmpty =
+	lazy val matchEmpty: Option[Seq[Generated]] =
 	{
-		val partialEmptyOption =
+		val partialAccumulatedOption =
 			partial match
 			{
-				case None => Some(Nil)
-				case Some(partialPattern) => for(value <- partialPattern.matchEmpty) yield (value :: Nil)
+				case None => Some(accumulatedReverse)
+				case Some(partialPattern) =>
+					for(value <- partialPattern.matchEmpty) yield (value :: accumulatedReverse)
 			}
-		for(partialEmpty <- partialEmptyOption; repeatEmpty <- repeatedMatchEmpty) yield
-			accumulatedReverse reverse_::: partialEmpty ::: repeatEmpty
+		for(partialAccumulated <- partialAccumulatedOption; repeatEmpty <- repeatedMatchEmpty) yield
+			partialAccumulated reverse_::: repeatEmpty
 	}
-	private def repeatedMatchEmpty =
+	private def repeatedMatchEmpty: Option[TList[Generated]] =
 	{
 		if(min == 0)
-			Some(Nil)
+			Some(TList.empty)
 		else
 			// forced determinism
 			for(value <- repeated.matchEmpty) yield
-				List.make(min, value)
+				TList.make(min, value)
 	}
 	
 	def nextPossiblePatterns =
@@ -133,7 +162,7 @@ private final class Repeat[Generated]
 	private def repeatNextPossiblePatterns = repeated.nextPossiblePatterns
 
 	
-	def marshal(g: List[Generated], reverseXML: List[out.Node]) =
+	def marshal(g: Seq[Generated], reverseXML: TList[out.Node]) =
 	{
 		if(partial.isDefined || !accumulatedReverse.isEmpty)
 			error("Cannot marshal a partially applied repeating pattern.")
@@ -141,11 +170,11 @@ private final class Repeat[Generated]
 			repeatMarshal(g, reverseXML)
 	}
 	
-	private def repeatMarshal(list: List[Generated], reverseXML: List[out.Node]) =
+	private def repeatMarshal(list: Seq[Generated], reverseXML: TList[out.Node]) =
 	{
 		if(validLength(list.size))
 		{
-			val initial: Either[MarshalException[Generated], List[out.Node]] = Right(reverseXML)
+			val initial: Either[MarshalException[Generated], TList[out.Node]] = Right(reverseXML)
 			translateMarshalError(list)(list.foldLeft(initial)(foldMarshal))
 		}
 		else
@@ -153,8 +182,8 @@ private final class Repeat[Generated]
 	}
 	private def validLength(length: Int): Boolean = max >= length && length >= min
 	
-	private def foldMarshal(result: Either[MarshalException[Generated], List[out.Node]], g: Generated):
-		Either[MarshalException[Generated], List[out.Node]] =
+	private def foldMarshal(result: Either[MarshalException[Generated], TList[out.Node]], g: Generated):
+		Either[MarshalException[Generated], TList[out.Node]] =
 	{
 		result.right.flatMap(newXML => repeated.marshal(g, newXML))
 	}
@@ -215,17 +244,17 @@ private final class Repeat[Generated]
 
 trait RepeatPatternFactory
 {
-	final def repeat[G](repeated: Pattern[G], min: Int, max: UpperBound): Pattern[List[G]] =
-		repeat(None, repeated, Nil, min, max) 
-	private[frostbridge] final def repeat[G](partial: Pattern[G], repeated: Pattern[G], accumulatedReverse: List[G],
-		min: Int, max: UpperBound): Pattern[List[G]] =
+	final def repeat[G](repeated: Pattern[G], min: Int, max: UpperBound)(implicit o: Optimize): Pattern[Seq[G]] =
+		repeat(None, o.reduce(repeated), TList.empty[G], min, max) 
+	private[frostbridge] final def repeat[G](partial: Pattern[G], repeated: Pattern[G], accumulatedReverse: TList[G],
+		min: Int, max: UpperBound)(implicit o: Optimize): Pattern[Seq[G]] =
 			repeat(Some(partial), repeated, accumulatedReverse, min, max)
-	private[frostbridge] final def repeat[G](partial: Option[Pattern[G]], repeated: Pattern[G], accumulatedReverse: List[G],
-		 min: Int, max: UpperBound): Pattern[List[G]] =
+	private[frostbridge] final def repeat[G](partial: Option[Pattern[G]], repeated: Pattern[G], accumulatedReverse: TList[G],
+		 min: Int, max: UpperBound)(implicit o: Optimize): Pattern[Seq[G]] =
 	{
 		assume(min >= 0, "Minimum must be greater than or equal to zero")
 		
-		def checkRepeated(invalidButOptional: => Pattern[List[G]]): Pattern[List[G]] =
+		def checkRepeated(invalidButOptional: => Pattern[Seq[G]]): Pattern[Seq[G]] =
 		{
 			if(!repeated.valid)
 			{
@@ -238,15 +267,17 @@ trait RepeatPatternFactory
 			{
 				repeated.matched match
 				{
-					case Some(value) => emptyPattern(List(value))
-					case None => new Repeat(partial, repeated, accumulatedReverse, min, max)
+					case Some(value) => emptyPattern(TList(value))
+					case None => o.intern(new Repeat(partial, repeated, accumulatedReverse, min, max))
 				}
 			}
 		}
 		
 		partial match
 		{
-			case Some(partialPattern) =>
+			case Some(partialP) =>
+			{
+				val partialPattern = o.reduce(partialP)
 				partialPattern.ifValid
 				{
 					partialPattern.matched match
@@ -255,18 +286,42 @@ trait RepeatPatternFactory
 						case None => checkRepeated(translateLast(partialPattern, accumulatedReverse))
 					}
 				}
+			}
 			case None =>
-				checkRepeated(emptyPattern(Nil))
+				checkRepeated(emptyPattern(TList.empty))
 		}
 	}
 	
-	private[frostbridge] def translateLast[Generated](pattern: Pattern[Generated], accumulatedReverse: List[Generated]) =
-		translate(pattern, (g: Generated) => accumulatedReverse reverse_::: g :: Nil,
-			(l: List[Generated]) => l.firstOption)
+	private[frostbridge] def translateLast[Generated]
+		(pattern: Pattern[Generated], accumulatedReverse: TList[Generated])(implicit o: Optimize) =
+			translate(pattern, TranslateLast[Generated](accumulatedReverse))
 			
-	final def optional[G](pattern: Pattern[G]): Pattern[Option[G]] =
-		emptyPattern[Option[G]](None) | translate(pattern, (g: G) => Some(g), (s: Option[G]) => s)
+	final def optional[G](pattern: Pattern[G])(implicit o: Optimize): Pattern[Option[G]] =
+		emptyPattern[Option[G]](None) | translate(pattern, TranslateOptional[G])
 }
+
+private final case class TranslateOptional[Generated] extends Translator[Option[Generated], Generated]
+{
+	def unprocess(s: Option[Generated]) = s
+	def process(g: Generated) = Some(g)
+}
+private final case class TranslateLast[Generated](accumulatedReverse: TList[Generated])
+	extends Translator[Seq[Generated],Generated]
+{
+	def unprocess(l: Seq[Generated]) = l.firstOption
+	def process(g: Generated) = (g :: accumulatedReverse).reverse
+	override def hashCode = hash
+	lazy val hash = List(getClass, accumulatedReverse).hashCode
+	override def equals(o: Any) =
+	{
+		o match
+		{
+			case TranslateLast(otherAccumulatedReverse) => accumulatedReverse == otherAccumulatedReverse
+			case _ => false
+		}
+	}
+}
+
 sealed trait UpperBound extends NotNull
 {
 	def >=(min: Int): Boolean
@@ -282,7 +337,7 @@ case object Infinite extends UpperBound
 	def isInfinite = true
 	override def toString = "Infinity"
 }
-final case class Finite(val value: Int) extends UpperBound
+final case class Finite(value: Int) extends UpperBound
 {
 	assume(value > 0, "Maximum occurences must be greater than zero")
 	

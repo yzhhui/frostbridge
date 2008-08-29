@@ -16,18 +16,39 @@
 *    You should have received a copy of the GNU Lesser General Public License
 *    along with Frostbridge.  If not, see <http://www.gnu.org/licenses/>.
 */
-package net.frostbridge
+package net.frostbridge.util
 
 import org.scalacheck._
 import Prop._
+import Gen.listOf
+import Arbitrary.arbitrary
 
-class FrostbridgeSpecification extends Properties("Frostbridge")
+object CanonicalMapSpecification extends Properties("CanonicalMap")
 {
-	include(PatternSpecification)
-	include(util.TruncateSpecification)
-	include(util.TListSpecification)
-	include(util.CanonicalMapSpecification)
-	import xml.ArbitraryXML
-	specify("XML Test", forAll(ArbitraryXML.defaultXML)((x: String) => true ))
+	specify("identity when empty", (i: Int) =>
+	{
+		val map = new WeakCanonicalMap[TList[Int]]
+		val i2 = intObject(i)
+		map.intern(i2) eq i2
+	})
+	specify("intern existing", (i: Int) =>
+	{
+		val map = new WeakCanonicalMap[TList[Int]]
+		val i2 = intObject(i)
+		(map.intern(i2) eq i2) &&
+		{
+			val i3 = intObject(i)
+			map.intern(i3) eq i2
+		}
+	})
+	specify("weakly referenced", (i: Int) =>
+	{
+		val map = new WeakCanonicalMap[TList[Int]]
+		map.intern(intObject(i))
+		System.gc()
+		val iDifferentObject = intObject(i)
+		map.intern(iDifferentObject) eq iDifferentObject
+	})
+	
+	private def intObject(i: Int): TList[Int] = TList[Int](i)
 }
-object FrostbridgeSpecification extends FrostbridgeSpecification

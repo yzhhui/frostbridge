@@ -18,33 +18,28 @@
 */
 package net.frostbridge
 
+sealed trait QName extends NotNull
+{
+	def namespaceURI: String
+	def localPart: String
+	def description: String
+	def ::(namespaceURI: String): QName
+}
 /**
 * A QName literal may be created by importing QName.localStringToQName
 * and doing "<URI>"::"localPart"
 */
-final class QName(val namespaceURI: String with NotNull, val localPart: String with NotNull) extends NotNull
+private[frostbridge] final class QNameImpl(val namespaceURI: String, val localPart: String) extends QName
 {
 	assume(!localPart.isEmpty, "Local part cannot be empty")
 	
 	def ::(namespaceURI: String) =
 	{
 		if(this.namespaceURI.isEmpty)
-			new QName(util.Check(namespaceURI), localPart)
+			new QNameImpl(util.Check(namespaceURI), localPart)
 		else
 			throw new IllegalArgumentException("Local name '" + localPart + "' already in namespace URI '" + this.namespaceURI + "' (attempted to apply '" + namespaceURI + "')")
 	}
-	
-	override def equals(other: Any) =
-	{
-		other match
-		{
-			case qname: QName => equalsQName(qname)
-			case _ => false
-		}
-	}
-	def ===(qname: QName) = namespaceURI == qname.namespaceURI && localPart == qname.localPart
-	def equalsQName(qname: QName) = this === qname
-		
 
 	def description =
 		if(namespaceURI == "")
@@ -52,10 +47,21 @@ final class QName(val namespaceURI: String with NotNull, val localPart: String w
 		else
 			"{" + namespaceURI + "}" + localPart
 			
+	override def hashCode = namespaceURI.hashCode * 41 + localPart.hashCode
+	override def equals(o: Any) =
+	{
+		o match
+		{
+			case q: QNameImpl => (this eq q) || ((q.namespaceURI == namespaceURI) && (q.localPart == localPart))
+			case _ => false
+		}
+	}
+			
 	override def toString = description
 }
 
 object QName
 {
-	implicit def localStringToQName(localPart: String): QName = new QName("", util.Check(localPart))
+	implicit def localStringToQName(localPart: String): QName = new QNameImpl("", util.Check(localPart))
+	def apply(namespaceURI: String, localPart: String): QName = new QNameImpl(util.Check(namespaceURI), util.Check(localPart))
 }

@@ -16,18 +16,39 @@
 *    You should have received a copy of the GNU Lesser General Public License
 *    along with Frostbridge.  If not, see <http://www.gnu.org/licenses/>.
 */
-package net.frostbridge
+package net.frostbridge.util
 
-import org.scalacheck._
-import Prop._
-
-class FrostbridgeSpecification extends Properties("Frostbridge")
+sealed trait CanonicalMap[A <: NotNull]
 {
-	include(PatternSpecification)
-	include(util.TruncateSpecification)
-	include(util.TListSpecification)
-	include(util.CanonicalMapSpecification)
-	import xml.ArbitraryXML
-	specify("XML Test", forAll(ArbitraryXML.defaultXML)((x: String) => true ))
+	def intern(value: A): A
+	def size: Int
 }
-object FrostbridgeSpecification extends FrostbridgeSpecification
+
+final class WeakCanonicalMap[A <: NotNull] extends CanonicalMap[A]
+{
+	import java.util.WeakHashMap
+	import java.lang.ref.{Reference, WeakReference}
+	private val backing = new WeakHashMap[A, Reference[A]]
+
+	def intern(value: A): A =
+	{
+		def addValue: A =
+		{
+			backing.put(value, new WeakReference[A](value))
+			value
+		}
+		val existingRef = backing.get(value)
+		if(existingRef == null)
+			addValue
+		else
+		{
+			val referenceValue = existingRef.get
+			if(referenceValue == null)
+				addValue
+			else
+				referenceValue
+		}
+	}
+	
+	def size = backing.size
+}

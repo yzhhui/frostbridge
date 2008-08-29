@@ -20,20 +20,24 @@ package net.frostbridge
 
 import javax.xml.stream.XMLStreamWriter
 
-/** The Marshaller object provides a thin (but important) wrapper around the Pattern.marshal
-* function.
-*/
+/** The Marshaller object is used to marshal objects to XML according to a pattern. */
 object Marshaller
 {
 	import java.io.{OutputStream, Writer}
+	/** Marshal 'value' to the 'output' Writer according to 'pattern'.  The returned value is
+	* None if marshalling is successful or Some containing the error if it is unsuccessful.*/
 	def apply[Generated](value: Generated, pattern: Pattern[Generated], output: Writer): Option[MarshalException[Generated]] =
 		apply(value, pattern, out.StAXOutput.createWriter(output))
+	/** Marshal 'value' to the 'output' stream according to 'pattern'.  The returned value is
+	* None if marshalling is successful or Some containing the error if it is unsuccessful.*/
 	def apply[Generated](value: Generated, pattern: Pattern[Generated], output: OutputStream): Option[MarshalException[Generated]] =
 		apply(value, pattern, out.StAXOutput.createWriter(output))
 	
+	/** Marshal 'value' to the 'output' XML Writer according to 'pattern'.  The returned value is
+	* None if marshalling is successful or Some containing the error if it is unsuccessful.*/
 	def apply[Generated](value: Generated, pattern: Pattern[Generated], output: XMLStreamWriter): Option[MarshalException[Generated]] =
 	{
-		pattern.marshal(value, Nil) match
+		pattern.marshal(value, util.TList.empty) match
 		{
 			case Right(nodeList) => out.StAXOutput.write(nodeList.reverse, output); None
 			case Left(error) => Some(error)

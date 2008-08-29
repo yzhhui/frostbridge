@@ -21,22 +21,36 @@ package net.frostbridge.out
 import javax.xml.stream.XMLStreamWriter
 
 /**
-* Notes: writing "" as the prefix will make the root element's namespace the default namespace
+* Writes a sequence of Nodes to XML using Woodstox.
 */
+//Notes: writing "" as the prefix will make the root element's namespace the default namespace
 object StAXOutput
 {
 	import javax.xml.stream.XMLOutputFactory._
 	import org.codehaus.stax2.XMLOutputFactory2._
 	import org.codehaus.stax2.XMLStreamProperties._
+	import com.ctc.wstx.cfg.OutputConfigFlags
 	import com.ctc.wstx.stax.WstxOutputFactory
 	
+	/** The factory for creating an XMLStreamWriter.  It is configured to 
+	* automatically generate namespace prefixes and to validate names, content, and structure*/
 	private val outputFactory =
 	{
 		val factory = new WstxOutputFactory
-		factory.setProperty(IS_REPAIRING_NAMESPACES, true)
-		factory.setProperty(P_AUTOMATIC_EMPTY_ELEMENTS, true)
+		def enable(property: String) = factory.setProperty(property, true)
+		
+		enable(IS_REPAIRING_NAMESPACES)
+		enable(P_AUTOMATIC_EMPTY_ELEMENTS)
 		factory.setProperty(P_AUTOMATIC_NS_PREFIX, "p")
-		factory.setProperty(XSP_NAMESPACE_AWARE, true)
+		enable(XSP_NAMESPACE_AWARE)
+		
+		val config = factory.getConfig
+		config.doValidateContent(true)
+		config.doValidateNames(true)
+		config.doValidateStructure(true)
+		config.doFixContent(true)
+		config.doValidateAttributes(true)
+		
 		factory
 	}
 	
@@ -45,7 +59,7 @@ object StAXOutput
 	def createWriter(stream: OutputStream) = outputFactory.createXMLStreamWriter(stream)
 		
 	import javax.xml.stream.XMLStreamException
-	def write(nodes: List[Node], writer: XMLStreamWriter): Option[XMLStreamException] =
+	def write(nodes: Seq[Node], writer: XMLStreamWriter): Option[XMLStreamException] =
 	{
 		try
 		{
@@ -77,9 +91,23 @@ final case class Attribute(name: QName, value: String) extends Node
 	override def toString = name.localPart + "=\"" + value + "\""
 }
 
-final case class Element(name: QName, content: List[Node]) extends Node
+final case class Element(name: QName, content: Seq[Node]) extends Node
 {
-	val (attributes, children) = content.partition(_.isInstanceOf[Attribute])
+	val (attributes, children) =
+	{
+		import scala.collection.mutable.ListBuffer
+		val attr = new ListBuffer[Attribute]
+		val children = new ListBuffer[Node]
+		for(node <- content)
+		{
+			node match
+			{
+				case a: Attribute => attr += a
+				case _ => children += node
+			}
+		}
+		(attr.readOnly, children.readOnly)
+	}
 	
 	def write(writer: XMLStreamWriter) =
 	{

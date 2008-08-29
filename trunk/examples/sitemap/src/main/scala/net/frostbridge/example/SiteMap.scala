@@ -48,14 +48,14 @@ import java.net.URL
 // XMLGregorianCalendar corresponds to the W3C dateTime data type in XML Schema.
 import javax.xml.datatype.XMLGregorianCalendar
 
-object SiteMapExample
+class SiteMapExample(implicit o: Optimize)
 {
 	// Here are the entry methods.  The main operation is constructing an
 	// XMLStream from the provided source.  An XMLStream provides a stream of
 	// XML nodes from an input source.  StAXStream is the object used by a
 	// client to construct an XMLStream from a File, URL, InputStream, or Reader.
-	def apply(filename: String): Unit = apply(filename, true)
-	def apply(filename: String, echoResult: Boolean): Unit =
+	def apply(filename: String)(implicit o: Optimize): Unit = apply(filename, true)
+	def apply(filename: String, echoResult: Boolean)(implicit o: Optimize): Unit =
 	{
 		val file = new File(filename)
 		if(file.exists)
@@ -63,13 +63,13 @@ object SiteMapExample
 		else
 			println("File does not exist.")
 	}
-	def apply(url: URL): Unit = apply(url, true)
-	def apply(url: URL, echoResult: Boolean): Unit = test(in.StAXStream(url), echoResult)
+	def apply(url: URL)(implicit o: Optimize): Unit = apply(url, true)
+	def apply(url: URL, echoResult: Boolean)(implicit o: Optimize): Unit = test(in.StAXStream(url), echoResult)
 	
 	// This method umarshals the XML in the given file to a SiteMap object,
 	// prints its toString representation, and then marshals it to
 	// standard output as XML.
-	def test(source: in.XMLStream, echoResult: Boolean)
+	def test(source: in.XMLStream, echoResult: Boolean)(implicit o: Optimize)
 	{
 		val unmarshalStartTime = System.currentTimeMillis
 		// The Matcher object is the simplest way to unmarshal XML to an object.  (More control
@@ -165,7 +165,7 @@ object SiteMapExample
 		val url = element(ns :: "url", urlPattern, urlGenerate, urlMarshal)
 		// Here we define the root element as one or more 'url' elements using the postfix + operator.
 		//  + is defined on Pattern, as are ? (to define an optional pattern) and * (to match a pattern zero or more times).
-		element(ns :: "urlset", url+, SiteMap(_: List[Location]), map => Some(map.locations))
+		element(ns :: "urlset", url+, SiteMap(_: Seq[Location]), map => Some(map.locations))
 		
 		// Here is a summary of creating a sequence pattern for use as the content of an element.
 		// We use the following existing definitions:
@@ -192,7 +192,7 @@ object SiteMapExample
 //   the user defines how to construct the data objects in the patterns, so
 //   the library does not use any reflection or bytecode manipulation to
 //   build the data objects.
-case class SiteMap(locations: List[Location])
+case class SiteMap(locations: Seq[Location])
 abstract class Location
 {
 	val location: URL
