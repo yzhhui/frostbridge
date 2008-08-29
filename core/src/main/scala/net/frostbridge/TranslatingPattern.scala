@@ -23,7 +23,14 @@ import java.io.Writer
 import PatternFactory._
 import PatternImpl.translateNotAllowed
 import Traceable.{basicTrace, ReferenceFunction}
+import util.TList
 
+
+trait Translator[Generated,Source] extends NotNull
+{
+	def process(s: Source): Generated
+	def unprocess(g: Generated): Option[Source]
+}
 /**
 * A pattern that delegates to another pattern and processes that pattern's generated result.
 */
@@ -32,38 +39,38 @@ private trait TranslatingPattern[Generated, Source] extends UnmatchedPattern[Gen
 	val delegate: Pattern[Source]
 	assume(delegate != this)
 	
-	def unprocess: (Generated => Option[Source])
-	def process: (Source => Generated)
+	def translator: Translator[Generated, Source]
 	
 	def description = delegate.description
 	final def nextPossiblePatterns = delegate.nextPossiblePatterns
 	final def trace(writer: Writer, level: Int, reference: ReferenceFunction) = delegate.trace(writer, level, reference)
 	
-
-	def marshal(g: Generated, reverseXML: List[out.Node]) =
+	def marshal(g: Generated, reverseXML: TList[out.Node]) =
 		translateMarshalError(g)
 		{
-			unprocess(g) match
+			translator.unprocess(g) match
 			{
 				case Some(source) => delegate.marshal(source, reverseXML)
 				case None => Left(RootMarshalException(g, this))
 			}
 		}
-	def derive(node: in.Node) = translate(delegate.derive(node), process, unprocess)
-	lazy val matchEmpty = delegate.matchEmpty.map(process)
+	private[frostbridge] final def deriveImpl(node: in.Node)(implicit o: Optimize) =
+		translate(delegate.derive(node), translator)
+	lazy val matchEmpty = delegate.matchEmpty.map(translator.process)
 }
 
 private[frostbridge] trait TranslatePatternFactory
 {
-	def translate[Generated, Source](pattern: Pattern[Source],
-		process: (Source => Generated), unprocess: (Generated => Option[Source])): Pattern[Generated] =
+	final def translate[Generated, Source](p: Pattern[Source], translator: Translator[Generated, Source])
+		(implicit o: Optimize): Pattern[Generated] =
 	{
+		val pattern = o.reduce(p)
 		pattern.ifValid
 		{
 			pattern.matched match
 			{
-				case Some(value) => emptyPattern(process(value))
-				case None => new BasicTranslatingPattern(pattern, process, unprocess)
+				case Some(value) => emptyPattern(translator.process(value))
+				case None => o.intern(BasicTranslatingPattern(pattern, translator))
 			}
 		}
 	}
@@ -72,6 +79,9 @@ private[frostbridge] trait TranslatePatternFactory
 /**
 * A simple implementation of TranslatingPattern.
 */
-private[frostbridge] final class BasicTranslatingPattern[Generated, Source]
-	(val delegate: Pattern[Source], val process: (Source => Generated), val unprocess: (Generated => Option[Source]))
+private[frostbridge] final case class BasicTranslatingPattern[Generated, Source]
+	(delegate: Pattern[Source], translator: Translator[Generated,Source])
 	extends TranslatingPattern[Generated,Source]
+{
+	lazy val hash = List(getClass, delegate, translator).hashCode
+}

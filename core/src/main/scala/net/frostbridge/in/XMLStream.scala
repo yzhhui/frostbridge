@@ -159,7 +159,7 @@ sealed trait Attribute extends ElementTag
 * Element start tag open (element qualified name)
 * Element start tag close (element qualified name)
 * Element end tag (element qualified name)
-* Attribute (enclosing element qualified name, attribute qualified name and value)
+* Attribute (enclosing element qualified name, attribute qualified name, and attribute value)
 * Text (value)
 *
 * The reader is the input source.  'process' may only be called once because it exhausts
@@ -216,7 +216,7 @@ private final class StAXStream(reader: XMLStreamReader2, config: StreamConfigura
 			{
 				case END_ELEMENT =>
 				{
-					processor.process(state, new EndImpl) match
+					processor.process(state, end) match
 					{
 						case Right(newState) => processElementContent(newState)
 						case error @ _ => error
@@ -224,7 +224,8 @@ private final class StAXStream(reader: XMLStreamReader2, config: StreamConfigura
 				}
 				case START_ELEMENT =>
 				{
-					val openTag = new OpenImpl :: getAttributes ::: new CloseImpl :: Nil
+					val elementName = getElementName
+					val openTag = OpenImpl(elementName) :: getAttributes(elementName) ::: CloseImpl()(elementName) :: Nil
 					openTag.foldLeft(Right(state): Either[E,I])(processWrapper) match
 					{
 						case Right(newState) => processElementContent(newState)
@@ -233,7 +234,7 @@ private final class StAXStream(reader: XMLStreamReader2, config: StreamConfigura
 				}
 				case CHARACTERS if !(reader.isWhiteSpace && config.ignoreWhitespaceOnly) =>
 				{
-					processor.process(state, new TextImpl) match
+					processor.process(state, text) match
 					{
 						case Right(newState) => processElementContent(newState)
 						case error @ _ => error
@@ -241,7 +242,7 @@ private final class StAXStream(reader: XMLStreamReader2, config: StreamConfigura
 				}
 				case PROCESSING_INSTRUCTION if !config.ignoreProcessingInstructions =>
 				{
-					processor.process(state, new ProcessingInstructionImpl) match
+					processor.process(state, processingInstruction) match
 					{
 						case Right(newState) => processElementContent(newState)
 						case error @ _ => error
@@ -249,7 +250,7 @@ private final class StAXStream(reader: XMLStreamReader2, config: StreamConfigura
 				}
 				case COMMENT if !config.ignoreComments =>
 				{
-					processor.process(state, new CommentImpl) match
+					processor.process(state, comment) match
 					{
 						case Right(newState) => processElementContent(newState)
 						case error @ _ => error
@@ -280,59 +281,56 @@ private final class StAXStream(reader: XMLStreamReader2, config: StreamConfigura
 		
 		override def toString = toXMLLike
 	}
-	private sealed abstract class ElementTagImpl extends NodeImpl with ElementTag
+	private def getElementName: QName =
 	{
-		val elementName: QName =
-		{
-			var nsURI = reader.getNamespaceURI()
-			new QName(nullToEmptyString(nsURI), Check(reader.getLocalName()))
-		}
+		val nsURI = reader.getNamespaceURI
+		new QNameImpl(nullToEmptyString(nsURI), Check(reader.getLocalName))
 	}
-	private class OpenImpl extends ElementTagImpl with Open
+	private case class OpenImpl(elementName: QName) extends NodeImpl with ElementTag with Open
 	{
-		require(START_ELEMENT)
 		def toXMLLike = tabs + "<" + elementName.description + " "
 		def description = "element '" + elementName.description + "'"
 	}
-	private class CloseImpl extends ElementTagImpl with Close
+	private case class CloseImpl()(val elementName: QName) extends NodeImpl with ElementTag with Close
 	{
-		require(START_ELEMENT)
 		def toXMLLike = ">"
 		def description = "close of start tag for element '" + elementName.description + "'"
 	}
-	private class EndImpl extends ElementTagImpl with EndTag
+	private def end: EndTag = EndImpl()(getElementName)
+	private case class EndImpl()(val elementName: QName) extends NodeImpl with ElementTag with EndTag
 	{
-		require(END_ELEMENT)
 		def toXMLLike = tabs + "</" + elementName.description + ">"
 		def description = "end tag for element '" + elementName.description + "'"
 	}
-	private class AttributeImpl(index: Int) extends ElementTagImpl with Attribute
+	private case class AttributeImpl(name: QName, value: String)(val elementName: QName) extends NodeImpl with ElementTag with Attribute
 	{
-		require(START_ELEMENT)
-		assume(0 <= index && index < reader.getAttributeCount)
-		
-		val name =
-		{
-			val prefix = nullToEmptyString(reader.getAttributePrefix(index))
-			val ns = nullToEmptyString(reader.getNamespaceURI(prefix))
-			val localName = Check(reader.getAttributeLocalName(index))
-			new QName(ns, localName)
-		}
-		val value = reader.getAttributeValue(index)
-		
 		def toXMLLike = keyValuePair
 		def description = "attribute " + keyValuePair
 		private[this] def keyValuePair = name.description + "=\"" + value + "\" "
 	}
 	
+	private def attribute(index: Int, elementName: QName): Attribute =
+	{
+		reader.require(START_ELEMENT, null, null)
+		assume(0 <= index && index < reader.getAttributeCount)
+		val name =
+		{
+			val prefix = nullToEmptyString(reader.getAttributePrefix(index))
+			val ns = nullToEmptyString(reader.getNamespaceURI(prefix))
+			val localName = Check(reader.getAttributeLocalName(index))
+			new QNameImpl(ns, localName)
+		}
+		val value = reader.getAttributeValue(index)
+		AttributeImpl(name, value)(elementName)
+	}
 	/** Processes the current reader context into a list of attributes. The underlying
 	* stream must be at an element start tag.*/
-	private def getAttributes: List[Attribute] =
+	private def getAttributes(elementName: QName): List[Attribute] =
 	{
 		reader.require(START_ELEMENT, null, null)
 		val attributes =
 			for(index <- (0 until reader.getAttributeCount)) yield
-				new AttributeImpl(index)
+				attribute(index, elementName: QName)
 		attributes.toList
 	}
 	/** Processes the current reader context into a text string. The underlying stream must
@@ -345,35 +343,41 @@ private final class StAXStream(reader: XMLStreamReader2, config: StreamConfigura
 		reader.getText(writer, false)
 		writer.getBuffer.toString
 	}
-	private class TextImpl extends NodeImpl with Text
+	private def text: Text =
 	{
-		require(CHARACTERS)
-		val value: String = getText
+		reader.require(CHARACTERS, null, null)
+		TextImpl(getText)
+	}
+	private case class TextImpl(value: String) extends NodeImpl with Text
+	{
 		def toXMLLike = value
 		def description = "text '" + TruncateString(value) + "'"
 	}
-	private class CommentImpl extends NodeImpl with Comment
+	private def comment: Comment =
 	{
-		require(COMMENT)
-		
-		val content: String = getText
-		
+		reader.require(COMMENT, null, null)
+		CommentImpl(getText)
+	}
+	private case class CommentImpl(content: String) extends NodeImpl with Comment
+	{
 		def description = "comment '" + TruncateString(content) + "'"
 		def toXMLLike = "<!--" + content + "-->"
 	}
-	private class ProcessingInstructionImpl extends NodeImpl with ProcessingInstruction
+	private def processingInstruction: ProcessingInstruction = 
 	{
-		require(PROCESSING_INSTRUCTION)
-		
-		val target: String = reader.getPITarget
-		val data: String = reader.getPIData
-		
+		reader.require(PROCESSING_INSTRUCTION, null, null)
+		ProcessingInstructionImpl(reader.getPITarget, reader.getPIData)
+	}
+	private case class ProcessingInstructionImpl(target: String, data: String) extends NodeImpl with ProcessingInstruction
+	{
 		def toXMLLike = "<?" + target + " " + data + "?>"
 		def description = "processing instruction {target='" + target + "' data='" + TruncateString(data) + "'}"
 	}
 }
 
-case class StreamConfiguration(ignoreProcessingInstructions: Boolean, ignoreComments: Boolean, ignoreWhitespaceOnly: Boolean)
+/** Configures the XMLStream to ignore certain XML nodes.  If ignoreWhitespaceOnly is true, text content that is
+* entirely whitespace will be ignored.*/
+final case class StreamConfiguration(ignoreProcessingInstructions: Boolean, ignoreComments: Boolean, ignoreWhitespaceOnly: Boolean)
 
 /** Contains methods to create an XMLStream object using the Woodstox pull parser.*/
 object StAXStream
@@ -382,19 +386,32 @@ object StAXStream
 	import java.io.{File, InputStream, Reader}
 	import DefaultInputFactory.createReader
 	
-	val DefaultStreamConfiguration = 
-		StreamConfiguration(true, true, true)
+	val DefaultStreamConfiguration = StreamConfiguration(true, true, true)
 	
+	/** Creates a new XMLStream from the given input file and with the specified configuration.*/
 	def apply(file: File, config: StreamConfiguration): XMLStream = new StAXStream(createReader(file), config)
+	/** Creates a new XMLStream from the given URL and with the specified configuration.*/
 	def apply(url: URL, config: StreamConfiguration): XMLStream = new StAXStream(createReader(url), config)
+	/** Creates a new XMLStream from the given InputStream and with the specified configuration.*/
 	def apply(stream: InputStream, config: StreamConfiguration): XMLStream = new StAXStream(createReader(stream), config)
+	/** Creates a new XMLStream from the given Reader and with the specified configuration.*/
 	def apply(reader: Reader, config: StreamConfiguration): XMLStream = new StAXStream(createReader(reader), config)
 	
+	/** Creates a new XMLStream from the given input file using the default configuration of ignoring
+	* comments, processing instructions, and whitespace only text content.*/
 	def apply(file: File): XMLStream = apply(file, DefaultStreamConfiguration)
+	/** Creates a new XMLStream from the given URL using the default configuration of ignoring
+	* comments, processing instructions, and whitespace only text content.*/
 	def apply(url: URL): XMLStream = apply(url, DefaultStreamConfiguration)
+	/** Creates a new XMLStream from the given InputStream using the default configuration of ignoring
+	* comments, processing instructions, and whitespace only text content.*/
 	def apply(stream: InputStream): XMLStream = apply(stream, DefaultStreamConfiguration)
+	/** Creates a new XMLStream from the given Reader using the default configuration of ignoring
+	* comments, processing instructions, and whitespace only text content.*/
 	def apply(reader: Reader): XMLStream = apply(reader, DefaultStreamConfiguration)
 	
+	/** Converts the given String to a String with NotNull by first checking that it is not null
+	* and then casting.*/
 	private def nullToEmptyString(value: String): String with NotNull =
 		if(value == null)
 			""

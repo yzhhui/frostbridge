@@ -23,58 +23,41 @@ import Traceable.{basicTrace, ReferenceFunction}
 import PatternImpl.translateNotAllowed
 import PatternFactory._
 import data.ValueParser
+import util.TList
 
 private[frostbridge] trait ContentPatternFactory
 {
-	def textPattern[Generated](contentA: ValueParser[Generated]): Pattern[Generated] =
-		new TextPattern[Generated]
-		{
-			val content = contentA
-		}
+	def textPattern[Generated](content: ValueParser[Generated])(implicit o: Optimize): Pattern[Generated] =
+		o.intern(TextPattern[Generated](content))
 		
-	def commentPattern[Generated](contentA: ValueParser[Generated]): Pattern[Generated] =
-		new CommentPattern[Generated]
-		{
-			val content = contentA
-		}
+	def commentPattern[Generated](content: ValueParser[Generated])(implicit o: Optimize): Pattern[Generated] =
+		o.intern(CommentPattern[Generated](content))
 		
-	def processingInstructionPattern[Generated](target: String, content: ValueParser[Generated]): Pattern[Generated] =
-		new BasicPIValuePattern[Generated](target, content)
+	def processingInstructionPattern[Generated](target: String, content: ValueParser[Generated])(implicit o: Optimize): Pattern[Generated] =
+		o.intern(BasicPIValuePattern[Generated](target, content))
 		
 	def processingInstructionPattern[Generated]
-		(targetAllowedA: String => Boolean, targetDescriptionA: String, dataA: ValueParser[Generated],
-		getTargetA: Generated => Option[String]) =
-			new PIValuePattern[Generated]
-			{
-				def targetAllowed(target: String) = targetAllowedA(target)
-				val targetDescription = targetDescriptionA
-				val data = dataA
-				def getTarget(g: Generated) = getTargetA(g)
-			}
+		(targetAllowed: String => Boolean, targetDescription: String, data: ValueParser[Generated],
+		getTarget: Generated => Option[String])(implicit o: Optimize): Pattern[Generated] =
+			o.intern(AdvancedPIValuePattern[Generated](targetAllowed, targetDescription, data, getTarget))
 		
-	def generalProcessingInstructionPattern[Generated] (descriptionA: String,
-		generateA: in.ProcessingInstruction => Option[Generated],
-		getTargetAndValueA: Generated => Option[out.ProcessingInstruction]): Pattern[Generated] =
-	{
-		new ProcessingInstructionPattern[Generated]
-		{
-			val description = descriptionA
-			def generate(pi: in.ProcessingInstruction) = generateA(pi)
-			def getTargetAndValue(g: Generated) = getTargetAndValueA(g)
-		}
-	}
+	def generalProcessingInstructionPattern[Generated] (description: String,
+		generate: in.ProcessingInstruction => Option[Generated],
+		getTargetAndValue: Generated => Option[out.ProcessingInstruction])(implicit o: Optimize): Pattern[Generated] =
+			o.intern(GeneralProcessingInstructionPattern[Generated](description, generate, getTargetAndValue))
 }
 
 /**
 * A pattern that matches text and generates a value using a ValueParser.
 */
-private sealed trait TextPattern[Generated] extends ContentPattern[Generated]
+private sealed case class TextPattern[Generated](content: ValueParser[Generated]) extends ContentPattern[Generated]
 {
 	lazy val matchEmpty = content.generate("")
-	def content: ValueParser[Generated]
 	protected def nodeFromString(string: String) = out.Text(string)
 	
-	def derive(node: in.Node) =
+	lazy val hash = List(getClass, content).hashCode
+	
+	private[frostbridge] def deriveImpl(node: in.Node)(implicit o: Optimize) =
 	{
 		node match
 		{
@@ -98,7 +81,7 @@ private sealed trait ContentPattern[Generated] extends UnmatchedPattern[Generate
 {
 	def content: ValueParser[Generated]
 	
-	protected def marshalImpl(g: Generated, reverseXML: List[out.Node]) =
+	protected def marshalImpl(g: Generated, reverseXML: TList[out.Node]) =
 	{
 		for(string <- content.marshalToString(g)) yield
 			nodeFromString(string) :: reverseXML
@@ -114,10 +97,11 @@ private sealed trait ContentPattern[Generated] extends UnmatchedPattern[Generate
 /**
 * A pattern that matches a comment and generates a value from the comment content using a ValueParser.
 */
-private sealed trait CommentPattern[Generated] extends ContentPattern[Generated]
+private sealed case class CommentPattern[Generated](content: ValueParser[Generated]) extends ContentPattern[Generated]
 {
+	lazy val hash = List(getClass, content).hashCode
 	lazy val matchEmpty = None
-	def derive(node: in.Node) =
+	private[frostbridge] def deriveImpl(node: in.Node)(implicit o: Optimize) =
 	{
 		node match
 		{
@@ -147,7 +131,7 @@ private trait ProcessingInstructionPattern[Generated] extends UnmatchedPattern[G
 	
 	lazy val matchEmpty = None
 	
-	def derive(node: in.Node): Pattern[Generated] =
+	private[frostbridge] def deriveImpl(node: in.Node)(implicit o: Optimize) =
 	{
 		node match
 		{
@@ -156,7 +140,7 @@ private trait ProcessingInstructionPattern[Generated] extends UnmatchedPattern[G
 			case _ => NotAllowedPattern
 		}
 	}
-	def marshalImpl(g: Generated, reverseXML: List[out.Node]): Option[List[out.Node]] =
+	def marshalImpl(g: Generated, reverseXML: TList[out.Node]): Option[TList[out.Node]] =
 		for(pi <- getTargetAndValue(g)) yield
 			pi :: reverseXML
 			
@@ -186,13 +170,32 @@ private[frostbridge] trait PIValuePattern[Generated] extends ProcessingInstructi
 	}
 	def description = "processing instruction {target='" + targetDescription + "', data='" + data.dataDescription + "'}"
 }
-private final class BasicPIValuePattern[Generated](val target: String, val data: ValueParser[Generated])
+private final case class BasicPIValuePattern[Generated](target: String, data: ValueParser[Generated])
 	extends PIValuePattern[Generated]
 {
 	assume(target != null, "Processing instruction target cannot be null")
 	assume(!target.isEmpty, "Processing instruction target cannot be empty")
 	
+	lazy val hash = List(getClass, target, data).hashCode
+	
 	def getTarget(g: Generated) = Some(target)
 	def targetAllowed(t: String) = target == t
 	def targetDescription = target
+}
+private final case class AdvancedPIValuePattern[Generated]
+	(targetAllowedA: String => Boolean, targetDescription: String, data: ValueParser[Generated],
+	getTargetA: Generated => Option[String]) extends PIValuePattern[Generated]
+{
+	lazy val hash = List(getClass, targetAllowedA, targetDescription, data, getTargetA).hashCode
+	def targetAllowed(target: String) = targetAllowedA(target)
+	def getTarget(g: Generated) = getTargetA(g)
+}
+private final case class GeneralProcessingInstructionPattern[Generated]
+	(description: String,
+	generateA: in.ProcessingInstruction => Option[Generated],
+	getTargetAndValueA: Generated => Option[out.ProcessingInstruction]) extends ProcessingInstructionPattern[Generated]
+{
+	def generate(pi: in.ProcessingInstruction) = generateA(pi)
+	def getTargetAndValue(g: Generated) = getTargetAndValueA(g)
+	lazy val hash = List(getClass, description, generateA, getTargetAndValueA).hashCode
 }

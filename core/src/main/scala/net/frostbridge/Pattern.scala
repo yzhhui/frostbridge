@@ -50,7 +50,16 @@ sealed trait Pattern[Generated] extends Traceable with NotNull
 	* Handles the given XML node by returning the next pattern to match.
 	* If the node does not match, NotAllowedPattern is returned.
 	*/
-	def derive(node: in.Node): Pattern[Generated]
+	def derive(node: in.Node)(implicit o: Optimize): Pattern[Generated] = o.derive(this, node)
+	
+	/**
+	* Implements derive without any optimizations.
+	*/
+	private[frostbridge] def deriveImpl(node: in.Node)(implicit o: Optimize): Pattern[Generated]
+	
+	final override def hashCode = hash
+	
+	private[frostbridge] val hash: Int
 	
 	/**
 	* Returns None if this value does not match the empty sequence, otherwise
@@ -87,54 +96,54 @@ sealed trait Pattern[Generated] extends Traceable with NotNull
 	* Constructs XML nodes from a generated object 'g' and prepends them to the reverse list
 	* of XML nodes in 'reverseXML'.  'reverseXML' should be reversed before consumption.
 	*/
-	def marshal(g: Generated, reverseXML: List[out.Node]): Either[MarshalException[Generated], List[out.Node]]
+	def marshal(g: Generated, reverseXML: util.TList[out.Node]): Either[MarshalException[Generated], util.TList[out.Node]]
 
 	import PatternFactory._
 	
 	/**
 	* Produces a pattern that matches this pattern one or more times.
 	*/
-	def + : Pattern[List[Generated]] = repeat(this, 1, Infinite)
+	def +(implicit o: Optimize) : Pattern[Seq[Generated]] = repeat(this, 1, Infinite)
 	
 	/**
 	* Produces a pattern that matches this pattern zero or more times.
 	*/
-	def * : Pattern[List[Generated]] = repeat(this, 0, Infinite)
+	def *(implicit o: Optimize) : Pattern[Seq[Generated]] = repeat(this, 0, Infinite)
 	
 	/**
 	* Produces a pattern that matches this pattern once or not at all.
 	*/
-	def ? : Pattern[Option[Generated]] = optional(this)
+	def ?(implicit o: Optimize) : Pattern[Option[Generated]] = optional(this)
 	
 	/**
 	* Produces a pattern that matches this pattern at least min times and at most max times.
 	*/
-	def apply(min: Int, max: UpperBound): Pattern[List[Generated]] = repeat(this, min, max)
+	def apply(min: Int, max: UpperBound)(implicit o: Optimize): Pattern[Seq[Generated]] = repeat(this, min, max)
 	
 	/**
 	* Produces a pattern that matches firstPattern and then this pattern in order.  Attributes
 	* are matched unordered.  Note that this is right associative.
 	*/
-	def :+: [GeneratedOther](firstPattern: Pattern[GeneratedOther]): Pattern[(GeneratedOther, Generated)] =
+	def :+: [GeneratedOther](firstPattern: Pattern[GeneratedOther])(implicit o: Optimize): Pattern[(GeneratedOther, Generated)] =
 		orderedSequence(firstPattern, this)
 	/**
 	* Produces a pattern that matches this pattern and then secondPattern or secondPattern and then
 	* this pattern.  Attributes are matched unordered.  Note that this is left associative.
 	*/
-	def +++ [GeneratedOther](secondPattern: Pattern[GeneratedOther]): Pattern[(Generated, GeneratedOther)] =
+	def +++ [GeneratedOther](secondPattern: Pattern[GeneratedOther])(implicit o: Optimize): Pattern[(Generated, GeneratedOther)] =
 		unorderedSequence(this,secondPattern)
 		
 	/**
 	* Produces a pattern that matches otherPattern or this pattern.  The result is Left if this pattern matched
 	* or Right if otherPattern matched.  If both match, the result is Left.
 	*/
-	def |+| [GeneratedOther](otherPattern: Pattern[GeneratedOther]): Pattern[Either[Generated,GeneratedOther]] =
+	def |+| [GeneratedOther](otherPattern: Pattern[GeneratedOther])(implicit o: Optimize): Pattern[Either[Generated,GeneratedOther]] =
 		heterogeneousChoice(this, otherPattern)
 		
 	/**
 	* Produces a pattern that matches otherPattern or this pattern.
 	*/
-	def | (otherPattern: Pattern[Generated]): Pattern[Generated] =
+	def | (otherPattern: Pattern[Generated])(implicit o: Optimize): Pattern[Generated] =
 		homogeneousChoice(this, otherPattern)
 }
 
@@ -158,11 +167,13 @@ private[frostbridge] trait UnmatchedPattern[Generated] extends Pattern[Generated
 /**
 * A pattern that represents a complete match.
 */
-private final class EmptyPattern[Generated](value: Generated) extends Pattern[Generated]
+private final case class EmptyPattern[Generated](value: Generated) extends Pattern[Generated]
 {
 	import java.io.Writer
 	import Traceable.{basicTrace, ReferenceFunction}
-	def derive(node: in.Node) =
+	// no need to memoize
+	override def derive(node: in.Node)(implicit o: Optimize) = deriveImpl(node)(o)
+	private[frostbridge] def deriveImpl(node: in.Node)(implicit o: Optimize) =
 	{
 		import PatternImpl.translateNotAllowed
 		node match
@@ -171,16 +182,20 @@ private final class EmptyPattern[Generated](value: Generated) extends Pattern[Ge
 			case _ => NotAllowedPattern
 		}
 	}
-	
-	def nextPossiblePatterns = Nil
+	lazy val hash = List(getClass, value).hashCode
 	
 	def matchEmpty = Some(value)
-	
 	def matched = Some(value)
+	def marshal(g: Generated, reverseXML: util.TList[out.Node]) =
+	{
+		if(value == g)
+			Right(reverseXML)
+		else
+			Left(RootMarshalException(g, this))
+	}
 	
-	def description = "Matched<" + value + ">"//error("Description is not valid for the Empty pattern")
-	
+	def description = "Matched<" + value + ">"
+	def nextPossiblePatterns = Nil
 	def trace(writer: Writer, level: Int, reference: ReferenceFunction) = basicTrace(writer, level, "()")
 	
-	def marshal(g: Generated, reverseXML: List[out.Node]) = Right(reverseXML)
 }

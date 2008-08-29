@@ -25,14 +25,17 @@ import scala.collection.mutable.Map
 
 import java.io.Writer
 
+/** An object that can write a representation of itself to a Writer. */
 trait Traceable extends NotNull
 {
-	/*
+	/**
 	* Returns a list of the possible next expected patterns, which may be
-	* text, element, or attribute patterns
+	* text, element, comment, processing instruction, or attribute patterns.
 	*/
 	def nextPossiblePatterns: List[Traceable]
 	
+	/** Writes a representation of this object to the given writer with this object
+	* as the top level. */
 	def startTrace(writer: Writer)
 	{
 		import scala.collection.mutable.HashMap
@@ -62,22 +65,40 @@ trait Traceable extends NotNull
 	
 	def description: String
 	
-	/*
-	* Writes a complete (deep) representation of this object to the given writer.
-	* The name of patterns to include by reference should be obtained through the
-	* reference function.
+	/**
+	* Writes a complete representation of this object to the given writer.
+	* When an object is written as a reference, it should obtain its reference
+	* name from the reference function.
 	*/
-	def trace(writer: Writer, level: Int, reference: ReferenceFunction)
+	private[frostbridge] def trace(writer: Writer, level: Int, reference: ReferenceFunction)
 	
-	
-	def embeddedTrace(writer: Writer, level: Int, reference: ReferenceFunction) = trace(writer, level, reference)
+	/** Writes a representation of this object for the case where it is enclosed in another object.
+	* The default implementation is the same as 'trace'.*/
+	private[frostbridge] def embeddedTrace(writer: Writer, level: Int, reference: ReferenceFunction) =
+		trace(writer, level, reference)
 }
 
+/** Represents a Traceable that may be referenced.  This means that when tracing out an enclosing object, that
+* object may write a reference to this object instead of the full contents of this object.  In this case,
+* this object should be appended to the trace after the enclosing object is traced.  For example:
+* element url
+* {
+*    attribute asdf { text }
+*    Pattern location
+* }
+* location = element location
+* {
+*   anyURL
+* }
+*
+* Here, location is referenced by name in the trace of element url and expanded after url is completed.
+* This allows for a more readable trace and for traces of cyclic objects.
+*/
 trait ReferencedTraceable extends Traceable
 {
 	def name: String
 	
-	override def embeddedTrace(writer: Writer, level: Int, referenceFunction: ReferenceFunction)
+	private[frostbridge] override def embeddedTrace(writer: Writer, level: Int, referenceFunction: ReferenceFunction)
 	{
 		if(level == 0)
 			trace(writer, level, referenceFunction)
@@ -86,6 +107,8 @@ trait ReferencedTraceable extends Traceable
 	}
 }
 
+/** Helper functions 
+*/
 object Traceable
 {
 	def trace(pattern: Traceable)
@@ -94,16 +117,22 @@ object Traceable
 		pattern.startTrace(writer)
 		writer.flush
 	}
+	def traceToString(pattern: Traceable): String =
+	{
+		val writer = new java.io.StringWriter
+		pattern.startTrace(writer)
+		writer.toString
+	}
 
 	type ReferenceFunction = Traceable => String
 	
-	def basicTrace(writer: Writer, level: Int, text: String) =
+	private[frostbridge] def basicTrace(writer: Writer, level: Int, text: String) =
 	{
 		writeLevel(writer, level)
 		writer.write(text)
 		writer.append('\n')
 	}
-	def writeLevel(writer: Writer, level: Int)
+	private[frostbridge] def writeLevel(writer: Writer, level: Int)
 	{
 		if(level > 0)
 		{
@@ -113,7 +142,7 @@ object Traceable
 	}
 	
 	private[this] def referencePattern(referencedPatterns: Map[Traceable, String], newPatterns: Map[String, Traceable], traceable: Traceable): String =
-	{	
+	{
 		def validReferencedTraceable(r: ReferencedTraceable) = 
 		{
 			if(r.name == null)

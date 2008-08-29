@@ -74,7 +74,7 @@ object Unmarshaller
 	* a BasicHandler.  The result will be the generated value in Right or
 	* an error message string in Left.
 	*/
-	def unmarshalOrError[Generated](pattern: Pattern[Generated], document: in.XMLStream) =
+	def unmarshalOrError[Generated](pattern: Pattern[Generated], document: in.XMLStream)(implicit o: Optimize) =
 		(new Unmarshaller(pattern, new BasicHandler[Generated])).unmarshal(document)
 	
 	/**
@@ -111,7 +111,7 @@ object Unmarshaller
 * binding, only one alternative can be bound.)
 */
 final class Unmarshaller[Generated, ResultType]
-	(pattern: Pattern[Generated], handler: UnmarshalHandler[Generated, ResultType]) extends NotNull
+	(pattern: Pattern[Generated], handler: UnmarshalHandler[Generated, ResultType])(implicit o: Optimize) extends NotNull
 {
 	private case class UnmarshalError[Generated](lastGoodPattern: Pattern[Generated], troubleNode: in.Node)
 	
@@ -122,9 +122,13 @@ final class Unmarshaller[Generated, ResultType]
 		println("Initial statistics:\n" + statistics.toCompactString + "\n")*/
 		def process(currentPattern: Pattern[Generated], node: in.Node) =
 		{
-			val newPattern = currentPattern.derive(node)
+			//Traceable.trace(currentPattern)
+			val newPattern = o.reduce(currentPattern.derive(node))
 			if(newPattern.valid)
 			{
+				//println("Derive(" + node + ")")
+				//Traceable.trace(newPattern)
+				//System.console.readLine
 				/*val oldStatistics = statistics
 				statistics = util.Statistics.statistics(newPattern)
 				println("Statistics change:\n" + (statistics - oldStatistics).toCompactString + "\n")*/
@@ -146,6 +150,8 @@ final class Unmarshaller[Generated, ResultType]
 		}
 	}
 	
-	/** Performs the unmarshalling. */
+	/** Unmarshals 'document' according to the pattern provided in the constructor and using
+	* the handler provided in the constructor.  The document is consumed after this method
+	* returns. */
 	final def unmarshal(document: in.XMLStream) = document.process(pattern, NodeProcessor)
 }

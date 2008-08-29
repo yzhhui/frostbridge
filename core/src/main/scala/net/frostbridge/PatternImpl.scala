@@ -19,7 +19,7 @@
 package net.frostbridge
 
 import java.io.Writer
-
+import util.TList
 import Traceable.{basicTrace, ReferenceFunction}
 
 // classes to implement Pattern.derive
@@ -27,17 +27,17 @@ import Traceable.{basicTrace, ReferenceFunction}
 
 trait MarshalInvalid[Generated] extends UnmatchedPattern[Generated]
 {
-	final def marshal(g: Generated, reverseXML: List[out.Node]) = Left(RootMarshalException(g, this))
+	final def marshal(g: Generated, reverseXML: TList[out.Node]) = Left(RootMarshalException(g, this))
 }
 trait BasicMarshaller[Generated] extends UnmatchedPattern[Generated]
 {
-	final def marshal(g: Generated, reverseXML: List[out.Node]) = marshalImpl(g, reverseXML).toRight(RootMarshalException(g, this))
-	protected def marshalImpl(g: Generated, reverseXML: List[out.Node]): Option[List[out.Node]]
+	final def marshal(g: Generated, reverseXML: TList[out.Node]) = marshalImpl(g, reverseXML).toRight(RootMarshalException(g, this))
+	protected def marshalImpl(g: Generated, reverseXML: TList[out.Node]): Option[TList[out.Node]]
 }
 trait MarshalErrorTranslator[Generated] extends UnmatchedPattern[Generated]
 {
-	def translateMarshalError(value: Generated)(e: Either[MarshalException[_], List[out.Node]]):
-		Either[MarshalException[Generated], List[out.Node]] =
+	def translateMarshalError(value: Generated)(e: Either[MarshalException[_], TList[out.Node]]):
+		Either[MarshalException[Generated], TList[out.Node]] =
 			e.left.map(error => ChainedMarshalException(value, this)(error :: Nil))
 }
 
@@ -47,14 +47,19 @@ trait MarshalErrorTranslator[Generated] extends UnmatchedPattern[Generated]
 * implicitly converted (casted) to the right Generated type (the Generated type
 * of a NotAllowedPattern is unimportant since it is never matched).
 */
-object NotAllowedPattern extends NotAllowedPattern[Nothing]
+case object NotAllowedPattern extends NotAllowedPattern[Nothing]
+{
+	val hash = System.identityHashCode(this)
+}
 
 /**
 * A pattern that represents a match error.
 */
 sealed trait NotAllowedPattern[Generated] extends UnmatchedPattern[Generated] with MarshalInvalid[Generated]
 {
-	final def derive(node: in.Node) = this
+	// no need to memoize
+	final override def derive(node: in.Node)(implicit o: Optimize) = this
+	private[frostbridge] final def deriveImpl(node: in.Node)(implicit o: Optimize) = this
 	
 	final def matchEmpty = None
 	

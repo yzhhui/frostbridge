@@ -1,3 +1,21 @@
+/*
+*  Copyright 2008, Mark Harrah
+*
+*	This file is part of Frostbridge.
+*
+*    Frostbridge is free software: you can redistribute it and/or modify
+*    it under the terms of the GNU Lesser General Public License as published by
+*    the Free Software Foundation, either version 2.1 of the License, or
+*    (at your option) any later version.
+*
+*    Frostbridge is distributed in the hope that it will be useful,
+*    but WITHOUT ANY WARRANTY; without even the implied warranty of
+*    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*    GNU Lesser General Public License for more details.
+*
+*    You should have received a copy of the GNU Lesser General Public License
+*    along with Frostbridge.  If not, see <http://www.gnu.org/licenses/>.
+*/
 package net.frostbridge.example
 
 import net.frostbridge._
@@ -17,8 +35,8 @@ class PatternTest[Generated](val pattern: Pattern[Generated])
 		}
 	}
 	
-	def apply(filename: String): Unit = apply(filename, true)
-	def apply(filename: String, echoResult: Boolean): Unit =
+	def apply(filename: String)(implicit o: Optimize): Unit = apply(filename, true)
+	def apply(filename: String, echoResult: Boolean)(implicit o: Optimize): Unit =
 	{
 		val file = new File(filename)
 		if(file.exists)
@@ -26,10 +44,10 @@ class PatternTest[Generated](val pattern: Pattern[Generated])
 		else
 			println("File does not exist.")
 	}
-	def apply(url: URL): Unit = apply(url, true)
-	def apply(url: URL, echoResult: Boolean): Unit = test(in.StAXStream(url), echoResult)
+	def apply(url: URL)(implicit o: Optimize): Unit = apply(url, true)
+	def apply(url: URL, echoResult: Boolean)(implicit o: Optimize): Unit = test(in.StAXStream(url), echoResult)
 	
-	def test(source: in.XMLStream, echoResult: Boolean)
+	def test(source: in.XMLStream, echoResult: Boolean)(implicit o: Optimize)
 	{
 		val unmarshalStartTime = System.currentTimeMillis
 		Unmarshaller.unmarshalOrError(pattern, source) match

@@ -26,7 +26,6 @@ import Arbitrary.arbitrary
 
 object TruncateSpecification extends Properties("TruncateString")
 {
-
 	def largeList[T](minimumSize: Int, g: => Gen[T]) =
 		sized(additionalSize =>
 			for(n <- choose(minimumSize, minimumSize+additionalSize); l <- vectorOf(n,g)) yield

@@ -89,6 +89,6 @@ private[in] object DefaultInputFactory extends InputFactory
 	def coalesce = true
 	def supportDTD = false
 	def preserveLocation = true
-	def internNames = true
+	def internNames = false
 	def internNamespaceURIs = false
 }

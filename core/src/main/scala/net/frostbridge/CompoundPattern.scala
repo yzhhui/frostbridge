@@ -18,6 +18,7 @@
 */
 package net.frostbridge
 
+import util.TList
 import PatternFactory._
 import PatternImpl._
 import Traceable._
@@ -54,40 +55,57 @@ private sealed trait BinaryCompoundPattern[A,B,C] extends UnmatchedPattern[C]
 	def pattern1: Pattern[A]
 	def pattern2: Pattern[B]
 	def separator: String
+	
+	final lazy val hash = ((getClass.hashCode * 31) + pattern1.hashCode) * 31 + pattern2.hashCode
+	final override def equals(o: Any) =
+	{
+		o match
+		{
+			case a: BinaryCompoundPattern[_,_,_] =>
+				(a eq this) || (getClass == a.getClass && (pattern1 eq a.pattern1) && (pattern2 eq a.pattern2))
+			case _ => false
+		}
+	}
 }
 trait CompoundPatternFactory
 {
-	final def homogeneousChoice[Generated](p1: Pattern[Generated], p2: Pattern[Generated]): Pattern[Generated] =
+	final def homogeneousChoice[Generated](p1: Pattern[Generated], p2: Pattern[Generated])
+		(implicit o: Optimize): Pattern[Generated] =
 	{
 		if(p1.valid)
 		{
 			if(p2.valid)
-				new HomogeneousChoice(p1, p2)
+				o.intern(new HomogeneousChoice(p1, p2))
 			else
 				p1
 		}
 		else
 			p2
 	}
-	final def heterogeneousChoice[A,B](p1: Pattern[A], p2: Pattern[B]): Pattern[Either[A, B]] =
+	final def heterogeneousChoice[A,B](pattern1: Pattern[A], pattern2: Pattern[B])(implicit o: Optimize): Pattern[Either[A, B]] =
 	{
+		val p1 = o.reduce(pattern1)
+		val p2 = o.reduce(pattern2)
 		if(p1.valid)
 		{
 			if(p2.valid)
-				new HeterogeneousChoice(p1, p2)
+				o.intern(new HeterogeneousChoice(p1, p2))
 			else
-				translate(p1, Left(_: A), (_: Either[A,B]).left.toOption)
+				translate(p1, HeterogeneousLeft[A,B])
 		}
 		else
-			translate(p2, Right(_: B), (_: Either[A,B]).right.toOption)
+			translate(p2, HeterogeneousRight[A,B])
 	}
 	
-	final def unorderedSequence[A, B](p1: Pattern[A], p2: Pattern[B]) =
-		requiredPair(p1, p2, (pA: Pattern[A], pB: Pattern[B]) => new UnorderedSequence(pA, pB))
-	final def orderedSequence[A, B](p1: Pattern[A], p2: Pattern[B]) =
-		requiredPair(p1, p2, (pA: Pattern[A], pB: Pattern[B]) => new OrderedSequence(pA, pB))
-	private def requiredPair[A, B](p1: Pattern[A], p2: Pattern[B], constructor: (Pattern[A], Pattern[B]) => Pattern[(A, B)]): Pattern[(A, B)] =
+	final def unorderedSequence[A, B](p1: Pattern[A], p2: Pattern[B])(implicit o: Optimize) =
+		requiredPair(p1, p2, (pA: Pattern[A], pB: Pattern[B]) => o.intern(new UnorderedSequence(pA, pB)))
+	final def orderedSequence[A, B](p1: Pattern[A], p2: Pattern[B])(implicit o: Optimize) =
+		requiredPair(p1, p2, (pA: Pattern[A], pB: Pattern[B]) => o.intern(new OrderedSequence(pA, pB)))
+	private def requiredPair[A, B](pattern1: Pattern[A], pattern2: Pattern[B],
+		constructor: (Pattern[A], Pattern[B]) => Pattern[(A, B)])(implicit o: Optimize): Pattern[(A, B)] =
 	{
+		val p1 = o.reduce(pattern1)
+		val p2 = o.reduce(pattern2)
 		p1.ifValid {
 			p2.ifValid {
 				p1.matched match
@@ -96,19 +114,18 @@ trait CompoundPatternFactory
 						p2.matched match
 						{
 							case Some(value2) => emptyPattern( (value1, value2) )
-							case None => translate(p2, (b: B) => (value1, b), (g: (A, B)) => Some(g._2) )
+							case None => translate(p2, RequiredRight(value1))
 						}
 					case None =>
 						p2.matched match
 						{
-							case Some(value2) => translate( p1, (a: A) => (a, value2), (g: (A, B)) => Some(g._1) )
+							case Some(value2) => translate(p1, RequiredLeft(value2))
 							case None => constructor(p1, p2)
 						}
 				}
 			}
 		}
 	}
-
 }
 private sealed trait BinaryRequired[A,B] extends BinaryCompoundPattern[A, B, (A,B)] with MarshalErrorTranslator[(A,B)]
 {
@@ -116,11 +133,11 @@ private sealed trait BinaryRequired[A,B] extends BinaryCompoundPattern[A, B, (A,
 		for(value1 <- pattern1.matchEmpty; value2 <- pattern2.matchEmpty) yield
 			(value1, value2)
 			
-	def marshal(g: (A, B), reverseXML: List[out.Node]) =
+	def marshal(g: (A, B), reverseXML: TList[out.Node]) =
 	{
 		val (a, b) = g
 		val dA = pattern1.marshal(a, reverseXML)
-		val dB = pattern2.marshal(b, dA.right.getOrElse(Nil))
+		val dB = pattern2.marshal(b, dA.right.getOrElse(TList.empty))
 		val errors = List.lefts(dA :: dB :: Nil)
 		if(errors.isEmpty)
 			translateMarshalError(g)(dB)
@@ -137,18 +154,19 @@ private final class HeterogeneousChoice[A, B](val pattern1: Pattern[A], val patt
 	def separator = "|+|"
 	def nextPossiblePatterns = pattern1.nextPossiblePatterns ::: pattern2.nextPossiblePatterns 
 	
-	def marshal(g: Either[A,B], reverseXML: List[out.Node]) =
+	def marshal(g: Either[A,B], reverseXML: TList[out.Node]) =
 		for(error <- g.fold(pattern1.marshal(_, reverseXML), pattern2.marshal(_, reverseXML)).left) yield
 			ChainedMarshalException(g, this)(List(error))
 	
-	def derive(node: in.Node) = heterogeneousChoice(pattern1.derive(node), pattern2.derive(node))
+	private[frostbridge] def deriveImpl(node: in.Node)(implicit o: Optimize) =
+		heterogeneousChoice(pattern1.derive(node), pattern2.derive(node))
 	
 	lazy val matchEmpty = pattern1.matchEmpty.map(Left(_)).orElse(pattern2.matchEmpty.map(Right(_)))
 	
 	protected def isSameType(other: Traceable) = other.isInstanceOf[HeterogeneousChoice[_,_]]
 }
 
-private final class HomogeneousChoice[Generated](val pattern1: Pattern[Generated], val pattern2: Pattern[Generated])
+private[frostbridge] final class HomogeneousChoice[Generated](val pattern1: Pattern[Generated], val pattern2: Pattern[Generated])
 	extends BinaryCompoundPattern[Generated,Generated,Generated]
 {
 	checkAllowed(pattern1, pattern2)
@@ -157,7 +175,8 @@ private final class HomogeneousChoice[Generated](val pattern1: Pattern[Generated
 	
 	def nextPossiblePatterns = pattern1.nextPossiblePatterns ::: pattern2.nextPossiblePatterns 
 	
-	def derive(node: in.Node) = homogeneousChoice(pattern1.derive(node), pattern2.derive(node))
+	private[frostbridge] def deriveImpl(node: in.Node)(implicit o: Optimize) =
+		homogeneousChoice(pattern1.derive(node), pattern2.derive(node))
 	
 	lazy val matchEmpty =
 	{
@@ -168,7 +187,7 @@ private final class HomogeneousChoice[Generated](val pattern1: Pattern[Generated
 			m	// Forced determinism
 	}
 	
-	def marshal(g: Generated, reverseXML: List[out.Node]) =
+	def marshal(g: Generated, reverseXML: TList[out.Node]) =
 	{
 		for(errorA <- pattern1.marshal(g, reverseXML).left;// Forced determinism
 			errorB <- pattern2.marshal(g, reverseXML).left)
@@ -184,7 +203,7 @@ private final class OrderedSequence[A,B](val pattern1: Pattern[A], val pattern2:
 	checkNonEmpty(pattern1, pattern2)
 	checkAllowed(pattern1, pattern2)
 
-	def derive(node: in.Node) =
+	private[frostbridge] def deriveImpl(node: in.Node)(implicit o: Optimize) =
 	{
 		node match
 		{
@@ -218,23 +237,26 @@ private final class OrderedSequence[A,B](val pattern1: Pattern[A], val pattern2:
 	protected def isSameType(other: Traceable) = other.isInstanceOf[OrderedSequence[_,_]]
 }
 
+private final case class SwapTranslator[A,B] extends Translator[(B,A), (A, B)]
+{
+	def process(p: (A, B)) = p.swap
+	def unprocess(p: (B, A)) = Some(p.swap)
+}
 private final class UnorderedSequence[A,B](val pattern1: Pattern[A], val pattern2: Pattern[B]) extends BinaryRequired[A,B]
 {
 	checkNonEmpty(pattern1, pattern2)
 	checkAllowed(pattern1, pattern2)
 	
-	def derive(node: in.Node) =
+	private[frostbridge] def deriveImpl(node: in.Node)(implicit o: Optimize) =
 	{
 		node match
 		{
 			case _: in.Close =>
 				pattern1.derive(node) +++ pattern2.derive(node)
 			case attribute: in.Attribute =>
-				(pattern1.derive(node) +++ pattern2) |
-					translate(pattern2.derive(node) +++ pattern1, (p: (B, A) ) => p.swap, (p: (A, B)) => Some(p.swap))
+				(pattern1.derive(node) +++ pattern2) | translate(pattern2.derive(node) +++ pattern1, SwapTranslator[B,A])
 			case _ =>
-				(pattern1.derive(node) :+: pattern2) | translate(pattern2.derive(node) :+: pattern1,
-					(p: (B, A) ) => p.swap, (p: (A, B)) => Some(p.swap))
+				(pattern1.derive(node) :+: pattern2) | translate(pattern2.derive(node) :+: pattern1, SwapTranslator[B,A])
 		}
 	}
 	
@@ -245,4 +267,29 @@ private final class UnorderedSequence[A,B](val pattern1: Pattern[A], val pattern
 	
 	protected def isSameType(other: Traceable) = other.isInstanceOf[UnorderedSequence[_,_]]
 }
-
+// for when the right is invalid
+private final case class HeterogeneousLeft[A,B] extends Translator[Either[A, B], A]
+{
+	def process(a: A) = Left(a)
+	def unprocess(e: Either[A,B]) = e.left.toOption
+}
+// for when the left is invalid
+private final case class HeterogeneousRight[A,B] extends Translator[Either[A, B], B]
+{
+	def process(b: B) = Right(b)
+	def unprocess(e: Either[A,B]) = e.right.toOption
+}
+private final case class RequiredRight[A,B](a: A) extends Translator[(A,B), B]
+{
+	def process(b: B) = (a, b)
+	def unprocess(g: (A, B)) = Some(g._2)
+	override def hashCode = hash
+	lazy val hash = List(getClass, a).hashCode
+}
+private final case class RequiredLeft[A,B](b: B) extends Translator[(A,B), A]
+{
+	def process(a: A) = (a, b)
+	def unprocess(g: (A, B)) = Some(g._1)
+	override def hashCode = hash
+	lazy val hash = List(getClass, b).hashCode
+}
