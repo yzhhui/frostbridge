@@ -54,23 +54,21 @@ private trait TranslatingPattern[Generated, Source] extends UnmatchedPattern[Gen
 				case None => Left(RootMarshalException(g, this))
 			}
 		}
-	private[frostbridge] final def deriveImpl(node: in.Node)(implicit o: Optimize) =
-		translate(delegate.derive(node), translator)
+	final def derive(node: in.Node) = translate(delegate.derive(node), translator)
 	lazy val matchEmpty = delegate.matchEmpty.map(translator.process)
 }
 
 private[frostbridge] trait TranslatePatternFactory
 {
-	final def translate[Generated, Source](p: Pattern[Source], translator: Translator[Generated, Source])
-		(implicit o: Optimize): Pattern[Generated] =
+	final def translate[Generated, Source]
+		(pattern: Pattern[Source], translator: Translator[Generated, Source]): Pattern[Generated] =
 	{
-		val pattern = o.reduce(p)
 		pattern.ifValid
 		{
 			pattern.matched match
 			{
 				case Some(value) => emptyPattern(translator.process(value))
-				case None => o.intern(BasicTranslatingPattern(pattern, translator))
+				case None => BasicTranslatingPattern(pattern, translator)
 			}
 		}
 	}

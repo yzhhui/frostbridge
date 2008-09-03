@@ -27,24 +27,24 @@ import util.TList
 
 private[frostbridge] trait ContentPatternFactory
 {
-	def textPattern[Generated](content: ValueParser[Generated])(implicit o: Optimize): Pattern[Generated] =
-		o.intern(TextPattern[Generated](content))
+	def textPattern[Generated](content: ValueParser[Generated]): Pattern[Generated] =
+		TextPattern[Generated](content)
 		
-	def commentPattern[Generated](content: ValueParser[Generated])(implicit o: Optimize): Pattern[Generated] =
-		o.intern(CommentPattern[Generated](content))
+	def commentPattern[Generated](content: ValueParser[Generated]): Pattern[Generated] =
+		CommentPattern[Generated](content)
 		
-	def processingInstructionPattern[Generated](target: String, content: ValueParser[Generated])(implicit o: Optimize): Pattern[Generated] =
-		o.intern(BasicPIValuePattern[Generated](target, content))
+	def processingInstructionPattern[Generated](target: String, content: ValueParser[Generated]): Pattern[Generated] =
+		BasicPIValuePattern[Generated](target, content)
 		
 	def processingInstructionPattern[Generated]
 		(targetAllowed: String => Boolean, targetDescription: String, data: ValueParser[Generated],
-		getTarget: Generated => Option[String])(implicit o: Optimize): Pattern[Generated] =
-			o.intern(AdvancedPIValuePattern[Generated](targetAllowed, targetDescription, data, getTarget))
+		getTarget: Generated => Option[String]): Pattern[Generated] =
+			AdvancedPIValuePattern[Generated](targetAllowed, targetDescription, data, getTarget)
 		
 	def generalProcessingInstructionPattern[Generated] (description: String,
 		generate: in.ProcessingInstruction => Option[Generated],
-		getTargetAndValue: Generated => Option[out.ProcessingInstruction])(implicit o: Optimize): Pattern[Generated] =
-			o.intern(GeneralProcessingInstructionPattern[Generated](description, generate, getTargetAndValue))
+		getTargetAndValue: Generated => Option[out.ProcessingInstruction]): Pattern[Generated] =
+			GeneralProcessingInstructionPattern[Generated](description, generate, getTargetAndValue)
 }
 
 /**
@@ -57,7 +57,7 @@ private sealed case class TextPattern[Generated](content: ValueParser[Generated]
 	
 	lazy val hash = List(getClass, content).hashCode
 	
-	private[frostbridge] def deriveImpl(node: in.Node)(implicit o: Optimize) =
+	def derive(node: in.Node) =
 	{
 		node match
 		{
@@ -101,7 +101,7 @@ private sealed case class CommentPattern[Generated](content: ValueParser[Generat
 {
 	lazy val hash = List(getClass, content).hashCode
 	lazy val matchEmpty = None
-	private[frostbridge] def deriveImpl(node: in.Node)(implicit o: Optimize) =
+	def derive(node: in.Node) =
 	{
 		node match
 		{
@@ -131,7 +131,7 @@ private trait ProcessingInstructionPattern[Generated] extends UnmatchedPattern[G
 	
 	lazy val matchEmpty = None
 	
-	private[frostbridge] def deriveImpl(node: in.Node)(implicit o: Optimize) =
+	def derive(node: in.Node) =
 	{
 		node match
 		{

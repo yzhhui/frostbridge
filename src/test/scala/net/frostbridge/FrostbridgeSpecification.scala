@@ -26,7 +26,6 @@ object FrostbridgeSpecification extends Properties("Frostbridge")
 	include(PatternSpecification)
 	include(util.TruncateSpecification)
 	include(util.TListSpecification)
-	include(util.CanonicalMapSpecification)
 	import xml.ArbitraryXML
 	specify("XML Test", forAll(ArbitraryXML.defaultXML)((x: String) => true ))
 }

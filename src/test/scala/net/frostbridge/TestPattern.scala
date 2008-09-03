@@ -33,18 +33,6 @@ case class FTestXML(fragment: Seq[Node], valid: Boolean) extends NotNull
 case class FTestString(content: String, valid: Boolean) extends NotNull
 case class FTestQName(name: QName, valid: Boolean) extends NotNull
 
-object NoOptimizePatternGen extends PatternGen with NoOptimizeGen
-
-object FullOptimizePatternGen extends PatternGen with FullOptimizeGen
-
-trait NoOptimizeGen extends PatternGen
-{
-	protected val optimization = new NoOptimize
-}
-trait FullOptimizeGen extends PatternGen
-{
-	protected val optimization = new InternedDeriveOptimize
-}
 abstract class DefaultPatternFrequency extends NotNull
 {
 	def attributeDataFrequency = 5
@@ -71,12 +59,9 @@ abstract class DefaultPatternFrequency extends NotNull
 	def averageIterations = 4.0
 }
 
-
-abstract class PatternGen extends DefaultPatternFrequency
+class PatternGen extends DefaultPatternFrequency
 {
 	import Random._
-	protected val optimization: Optimize
-	implicit def optimize: Optimize = optimization
 
 	implicit val namespaceGenerator = xml.ArbitraryXML.defaultNamespaces.namespace
 	

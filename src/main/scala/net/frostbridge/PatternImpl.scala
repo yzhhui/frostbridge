@@ -58,8 +58,7 @@ case object NotAllowedPattern extends NotAllowedPattern[Nothing]
 sealed trait NotAllowedPattern[Generated] extends UnmatchedPattern[Generated] with MarshalInvalid[Generated]
 {
 	// no need to memoize
-	final override def derive(node: in.Node)(implicit o: Optimize) = this
-	private[frostbridge] final def deriveImpl(node: in.Node)(implicit o: Optimize) = this
+	final def derive(node: in.Node) = this
 	
 	final def matchEmpty = None
 	

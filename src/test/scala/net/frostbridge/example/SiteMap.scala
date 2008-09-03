@@ -48,14 +48,14 @@ import java.net.URL
 // XMLGregorianCalendar corresponds to the W3C dateTime data type in XML Schema.
 import javax.xml.datatype.XMLGregorianCalendar
 
-class SiteMapExample(implicit o: Optimize)
+object SiteMapExample
 {
 	// Here are the entry methods.  The main operation is constructing an
 	// XMLStream from the provided source.  An XMLStream provides a stream of
 	// XML nodes from an input source.  StAXStream is the object used by a
 	// client to construct an XMLStream from a File, URL, InputStream, or Reader.
-	def apply(filename: String)(implicit o: Optimize): Unit = apply(filename, true)
-	def apply(filename: String, echoResult: Boolean)(implicit o: Optimize): Unit =
+	def apply(filename: String): Unit = apply(filename, true)
+	def apply(filename: String, echoResult: Boolean): Unit =
 	{
 		val file = new File(filename)
 		if(file.exists)
@@ -63,13 +63,13 @@ class SiteMapExample(implicit o: Optimize)
 		else
 			println("File does not exist.")
 	}
-	def apply(url: URL)(implicit o: Optimize): Unit = apply(url, true)
-	def apply(url: URL, echoResult: Boolean)(implicit o: Optimize): Unit = test(in.StAXStream(url), echoResult)
+	def apply(url: URL): Unit = apply(url, true)
+	def apply(url: URL, echoResult: Boolean): Unit = test(in.StAXStream(url), echoResult)
 	
 	// This method umarshals the XML in the given file to a SiteMap object,
 	// prints its toString representation, and then marshals it to
 	// standard output as XML.
-	def test(source: in.XMLStream, echoResult: Boolean)(implicit o: Optimize)
+	def test(source: in.XMLStream, echoResult: Boolean)
 	{
 		val unmarshalStartTime = System.currentTimeMillis
 		// The Matcher object is the simplest way to unmarshal XML to an object.  (More control

@@ -21,7 +21,7 @@ package net.frostbridge
 import data.ValueParser
 import PatternFactory._
 
-class IgnoreAnyInNameClass(nameClass: NameClass)(implicit o: Optimize)
+class IgnoreAnyInNameClass(nameClass: NameClass)
 {
 	val unit2None = (u: Unit) => None
 	
@@ -58,11 +58,11 @@ class IgnoreAnyInNameClass(nameClass: NameClass)(implicit o: Optimize)
 		def unprocess(u: Unit) = None
 	}
 }
-class IgnoreAnyInNamespace(ns: String)(implicit o: Optimize) extends IgnoreAnyInNameClass(NsName(ns))(o)
-class IgnoreAny(implicit o: Optimize) extends IgnoreAnyInNameClass(AnyName)(o)
+class IgnoreAnyInNamespace(ns: String) extends IgnoreAnyInNameClass(NsName(ns))
+object IgnoreAny extends IgnoreAnyInNameClass(AnyName)
 
 
-sealed abstract class AbstractPreserveAny(nameClass: NameClass)(implicit o: Optimize)
+sealed abstract class AbstractPreserveAny(nameClass: NameClass)
 {
 	import out._
 	protected def lazyAnyPatterns(u: Unit): Pattern[Seq[Node]]
@@ -93,7 +93,7 @@ sealed abstract class AbstractPreserveAny(nameClass: NameClass)(implicit o: Opti
 		textPattern[Text](textValue)
 	}
 }
-class PreserveAnyInNameClass(nameClass: NameClass)(implicit o: Optimize) extends AbstractPreserveAny(nameClass)(o)
+class PreserveAnyInNameClass(nameClass: NameClass) extends AbstractPreserveAny(nameClass)
 {
 	import out._
 	val any: Pattern[Node] =
@@ -122,10 +122,10 @@ class PreserveAnyInNameClass(nameClass: NameClass)(implicit o: Optimize) extends
 	def lazyAnyPatterns(u: Unit) = anyPatterns
 }
 
-class PreserveAnyInNamespace(ns: String)(implicit o: Optimize) extends PreserveAnyInNameClass(NsName(ns))(o)
-class PreserveAny(implicit o: Optimize) extends PreserveAnyInNameClass(AnyName)(o)
+class PreserveAnyInNamespace(ns: String) extends PreserveAnyInNameClass(NsName(ns))
+object PreserveAny extends PreserveAnyInNameClass(AnyName)
 
-class FullPreserveAnyInNameClass(nameClass: NameClass)(implicit o: Optimize) extends AbstractPreserveAny(nameClass)(o)
+class FullPreserveAnyInNameClass(nameClass: NameClass) extends AbstractPreserveAny(nameClass)
 {
 	import out._
 	
@@ -171,11 +171,11 @@ class FullPreserveAnyInNameClass(nameClass: NameClass)(implicit o: Optimize) ext
 	def lazyAnyPatterns(u: Unit) = anyPatterns
 }
 
-class FullPreserveAnyInNamespace(ns: String)(implicit o: Optimize) extends FullPreserveAnyInNameClass(NsName(ns))(o)
-class FullPreserveAny(implicit o: Optimize) extends FullPreserveAnyInNameClass(AnyName)(o)
+class FullPreserveAnyInNamespace(ns: String) extends FullPreserveAnyInNameClass(NsName(ns))
+object FullPreserveAny extends FullPreserveAnyInNameClass(AnyName)
 
 
-class PreserveAnyInNameClass2(nameClass: NameClass)(implicit o: Optimize)
+class PreserveAnyInNameClass2(nameClass: NameClass)
 {
 	import out._
 	
@@ -210,5 +210,5 @@ class PreserveAnyInNameClass2(nameClass: NameClass)(implicit o: Optimize)
 	def lazyAnyPatterns(u: Unit) = anyPatterns
 }
 
-class PreserveAnyInNamespace2(ns: String)(implicit o: Optimize) extends PreserveAnyInNameClass2(NsName(ns))(o)
-class PreserveAny2(implicit o: Optimize) extends PreserveAnyInNameClass2(AnyName)(o)
+class PreserveAnyInNamespace2(ns: String) extends PreserveAnyInNameClass2(NsName(ns))
+object PreserveAny2 extends PreserveAnyInNameClass2(AnyName)

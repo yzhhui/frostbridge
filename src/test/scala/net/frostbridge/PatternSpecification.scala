@@ -23,7 +23,7 @@ import Prop._
 
 object PatternSpecification extends Properties("Pattern")
 {
-	val gen = NoOptimizePatternGen
+	val gen = new PatternGen
 	import gen.arbElement
 	specify("matches valid pattern", (test: FTestPattern) =>
 	{
@@ -36,7 +36,7 @@ object PatternSpecification extends Properties("Pattern")
 		val writer = new StringWriter
 		out.StAXOutput.write(fragment, out.StAXOutput.createWriter(writer))
 		val xmlString = writer.toString
-		Unmarshaller.unmarshalOrError(pattern, in.StAXStream(new StringReader(xmlString)))(gen.optimize) match
+		Unmarshaller.unmarshalOrError(pattern, in.StAXStream(new StringReader(xmlString))) match
 		{
 			case Left(errorMessage) =>
 			{

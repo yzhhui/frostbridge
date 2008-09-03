@@ -42,7 +42,7 @@ private sealed abstract class AttributePattern[Generated] extends UnmatchedPatte
 	
 	def matchEmpty = None
 	
-	private[frostbridge] final def deriveImpl(node: in.Node)(implicit o: Optimize): Pattern[Generated] =
+	final def derive(node: in.Node): Pattern[Generated] =
 	{
 		node match
 		{
@@ -125,15 +125,15 @@ private final case class AdvancedAttributePattern[Generated]
 
 private[frostbridge] trait AttributePatternFactory
 {
-	def attribute[Generated](name: Name, value: ValueParser[Generated])(implicit o: Optimize): Pattern[Generated] =
-		o.intern(SimpleAttributePattern[Generated](name, value))
+	def attribute[Generated](name: Name, value: ValueParser[Generated]): Pattern[Generated] =
+		SimpleAttributePattern[Generated](name, value)
 	
 	def attribute[Generated](nameClass: NameClass, value: ValueParser[Generated],
-		generateNameA: Generated => Option[QName])(implicit o: Optimize): Pattern[Generated] =
-			o.intern(AdvancedAttributePattern[Generated](nameClass, value, generateNameA))
+		generateNameA: Generated => Option[QName]): Pattern[Generated] =
+			AdvancedAttributePattern[Generated](nameClass, value, generateNameA)
 		
 	def generalAttribute[Generated](nameClass: NameClass, contentDescription: String,
 		generate: (QName, String) => Option[Generated],
-		marshal: Generated => Option[out.Attribute])(implicit o: Optimize): Pattern[Generated] =
-			o.intern(GeneralAttributePattern[Generated](nameClass, contentDescription, generate, marshal))
+		marshal: Generated => Option[out.Attribute]): Pattern[Generated] =
+			GeneralAttributePattern[Generated](nameClass, contentDescription, generate, marshal)
 }
