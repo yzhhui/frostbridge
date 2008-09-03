@@ -70,27 +70,24 @@ private sealed trait BinaryCompoundPattern[A,B,C] extends UnmatchedPattern[C]
 }
 trait CompoundPatternFactory
 {
-	final def homogeneousChoice[Generated](p1: Pattern[Generated], p2: Pattern[Generated])
-		(implicit o: Optimize): Pattern[Generated] =
+	final def homogeneousChoice[Generated](p1: Pattern[Generated], p2: Pattern[Generated]): Pattern[Generated] =
 	{
 		if(p1.valid)
 		{
 			if(p2.valid)
-				o.intern(new HomogeneousChoice(p1, p2))
+				new HomogeneousChoice(p1, p2)
 			else
 				p1
 		}
 		else
 			p2
 	}
-	final def heterogeneousChoice[A,B](pattern1: Pattern[A], pattern2: Pattern[B])(implicit o: Optimize): Pattern[Either[A, B]] =
+	final def heterogeneousChoice[A,B](p1: Pattern[A], p2: Pattern[B]): Pattern[Either[A, B]] =
 	{
-		val p1 = o.reduce(pattern1)
-		val p2 = o.reduce(pattern2)
 		if(p1.valid)
 		{
 			if(p2.valid)
-				o.intern(new HeterogeneousChoice(p1, p2))
+				new HeterogeneousChoice(p1, p2)
 			else
 				translate(p1, HeterogeneousLeft[A,B])
 		}
@@ -98,15 +95,13 @@ trait CompoundPatternFactory
 			translate(p2, HeterogeneousRight[A,B])
 	}
 	
-	final def unorderedSequence[A, B](p1: Pattern[A], p2: Pattern[B])(implicit o: Optimize) =
-		requiredPair(p1, p2, (pA: Pattern[A], pB: Pattern[B]) => o.intern(new UnorderedSequence(pA, pB)))
-	final def orderedSequence[A, B](p1: Pattern[A], p2: Pattern[B])(implicit o: Optimize) =
-		requiredPair(p1, p2, (pA: Pattern[A], pB: Pattern[B]) => o.intern(new OrderedSequence(pA, pB)))
-	private def requiredPair[A, B](pattern1: Pattern[A], pattern2: Pattern[B],
-		constructor: (Pattern[A], Pattern[B]) => Pattern[(A, B)])(implicit o: Optimize): Pattern[(A, B)] =
+	final def unorderedSequence[A, B](p1: Pattern[A], p2: Pattern[B]) =
+		requiredPair(p1, p2, (pA: Pattern[A], pB: Pattern[B]) => new UnorderedSequence(pA, pB))
+	final def orderedSequence[A, B](p1: Pattern[A], p2: Pattern[B]) =
+		requiredPair(p1, p2, (pA: Pattern[A], pB: Pattern[B]) => new OrderedSequence(pA, pB))
+	private def requiredPair[A, B](p1: Pattern[A], p2: Pattern[B],
+		constructor: (Pattern[A], Pattern[B]) => Pattern[(A, B)]): Pattern[(A, B)] =
 	{
-		val p1 = o.reduce(pattern1)
-		val p2 = o.reduce(pattern2)
 		p1.ifValid {
 			p2.ifValid {
 				p1.matched match
@@ -159,8 +154,7 @@ private final class HeterogeneousChoice[A, B](val pattern1: Pattern[A], val patt
 		for(error <- g.fold(pattern1.marshal(_, reverseXML), pattern2.marshal(_, reverseXML)).left) yield
 			ChainedMarshalException(g, this)(List(error))
 	
-	private[frostbridge] def deriveImpl(node: in.Node)(implicit o: Optimize) =
-		heterogeneousChoice(pattern1.derive(node), pattern2.derive(node))
+	def derive(node: in.Node) = heterogeneousChoice(pattern1.derive(node), pattern2.derive(node))
 	
 	lazy val matchEmpty = pattern1.matchEmpty.map(Left(_)).orElse(pattern2.matchEmpty.map(Right(_)))
 	
@@ -181,8 +175,7 @@ private[frostbridge] final class HomogeneousChoice[Generated](val pattern1: Patt
 	
 	def nextPossiblePatterns = pattern1.nextPossiblePatterns ::: pattern2.nextPossiblePatterns 
 	
-	private[frostbridge] def deriveImpl(node: in.Node)(implicit o: Optimize) =
-		homogeneousChoice(pattern1.derive(node), pattern2.derive(node))
+	def derive(node: in.Node) = homogeneousChoice(pattern1.derive(node), pattern2.derive(node))
 	
 	lazy val matchEmpty =
 	{
@@ -214,7 +207,7 @@ private final class OrderedSequence[A,B](val pattern1: Pattern[A], val pattern2:
 	checkNonEmpty(pattern1, pattern2)
 	checkAllowed(pattern1, pattern2)
 
-	private[frostbridge] def deriveImpl(node: in.Node)(implicit o: Optimize) =
+	def derive(node: in.Node) =
 	{
 		node match
 		{
@@ -263,7 +256,7 @@ private final class UnorderedSequence[A,B](val pattern1: Pattern[A], val pattern
 	checkNonEmpty(pattern1, pattern2)
 	checkAllowed(pattern1, pattern2)
 	
-	private[frostbridge] def deriveImpl(node: in.Node)(implicit o: Optimize) =
+	def derive(node: in.Node) =
 	{
 		node match
 		{

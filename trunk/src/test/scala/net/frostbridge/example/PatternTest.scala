@@ -35,8 +35,8 @@ class PatternTest[Generated](val pattern: Pattern[Generated])
 		}
 	}
 	
-	def apply(filename: String)(implicit o: Optimize): Unit = apply(filename, true)
-	def apply(filename: String, echoResult: Boolean)(implicit o: Optimize): Unit =
+	def apply(filename: String): Unit = apply(filename, true)
+	def apply(filename: String, echoResult: Boolean): Unit =
 	{
 		val file = new File(filename)
 		if(file.exists)
@@ -44,10 +44,10 @@ class PatternTest[Generated](val pattern: Pattern[Generated])
 		else
 			println("File does not exist.")
 	}
-	def apply(url: URL)(implicit o: Optimize): Unit = apply(url, true)
-	def apply(url: URL, echoResult: Boolean)(implicit o: Optimize): Unit = test(in.StAXStream(url), echoResult)
+	def apply(url: URL): Unit = apply(url, true)
+	def apply(url: URL, echoResult: Boolean): Unit = test(in.StAXStream(url), echoResult)
 	
-	def test(source: in.XMLStream, echoResult: Boolean)(implicit o: Optimize)
+	def test(source: in.XMLStream, echoResult: Boolean)
 	{
 		val unmarshalStartTime = System.currentTimeMillis
 		Unmarshaller.unmarshalOrError(pattern, source) match

@@ -74,7 +74,7 @@ object Unmarshaller
 	* a BasicHandler.  The result will be the generated value in Right or
 	* an error message string in Left.
 	*/
-	def unmarshalOrError[Generated](pattern: Pattern[Generated], document: in.XMLStream)(implicit o: Optimize) =
+	def unmarshalOrError[Generated](pattern: Pattern[Generated], document: in.XMLStream) =
 		(new Unmarshaller(pattern, new BasicHandler[Generated])).unmarshal(document)
 	
 	/**
@@ -111,7 +111,7 @@ object Unmarshaller
 * binding, only one alternative can be bound.)
 */
 final class Unmarshaller[Generated, ResultType]
-	(pattern: Pattern[Generated], handler: UnmarshalHandler[Generated, ResultType])(implicit o: Optimize) extends NotNull
+	(pattern: Pattern[Generated], handler: UnmarshalHandler[Generated, ResultType]) extends NotNull
 {
 	private case class UnmarshalError[Generated](lastGoodPattern: Pattern[Generated], troubleNode: in.Node)
 	
@@ -123,7 +123,7 @@ final class Unmarshaller[Generated, ResultType]
 		def process(currentPattern: Pattern[Generated], node: in.Node) =
 		{
 			//Traceable.trace(currentPattern)
-			val newPattern = o.reduce(currentPattern.derive(node))
+			val newPattern = currentPattern.derive(node)
 			if(newPattern.valid)
 			{
 				//println("Derive(" + node + ")")

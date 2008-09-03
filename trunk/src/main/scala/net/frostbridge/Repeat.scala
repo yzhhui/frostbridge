@@ -66,7 +66,7 @@ private final class Repeat[Generated]
 		}
 	}
 	
-	private[frostbridge] final def deriveImpl(node: in.Node)(implicit o: Optimize) =
+	def derive(node: in.Node) =
 	{
 		partial match
 		{
@@ -93,7 +93,7 @@ private final class Repeat[Generated]
 			}
 		}
 	}
-	private def repeatDerive(node: in.Node, prependValue: Option[Generated])(implicit o: Optimize): Pattern[Seq[Generated]] =
+	private def repeatDerive(node: in.Node, prependValue: Option[Generated]): Pattern[Seq[Generated]] =
 		node match
 		{
 			case close: in.Close => repeat(None, repeated.derive(close), accumulate(prependValue), min, max)
@@ -244,13 +244,13 @@ private final class Repeat[Generated]
 
 trait RepeatPatternFactory
 {
-	final def repeat[G](repeated: Pattern[G], min: Int, max: UpperBound)(implicit o: Optimize): Pattern[Seq[G]] =
-		repeat(None, o.reduce(repeated), TList.empty[G], min, max) 
+	final def repeat[G](repeated: Pattern[G], min: Int, max: UpperBound): Pattern[Seq[G]] =
+		repeat(None, repeated, TList.empty[G], min, max) 
 	private[frostbridge] final def repeat[G](partial: Pattern[G], repeated: Pattern[G], accumulatedReverse: TList[G],
-		min: Int, max: UpperBound)(implicit o: Optimize): Pattern[Seq[G]] =
+		min: Int, max: UpperBound): Pattern[Seq[G]] =
 			repeat(Some(partial), repeated, accumulatedReverse, min, max)
 	private[frostbridge] final def repeat[G](partial: Option[Pattern[G]], repeated: Pattern[G], accumulatedReverse: TList[G],
-		 min: Int, max: UpperBound)(implicit o: Optimize): Pattern[Seq[G]] =
+		 min: Int, max: UpperBound): Pattern[Seq[G]] =
 	{
 		assume(min >= 0, "Minimum must be greater than or equal to zero")
 		
@@ -268,16 +268,15 @@ trait RepeatPatternFactory
 				repeated.matched match
 				{
 					case Some(value) => emptyPattern(TList(value))
-					case None => o.intern(new Repeat(partial, repeated, accumulatedReverse, min, max))
+					case None => new Repeat(partial, repeated, accumulatedReverse, min, max)
 				}
 			}
 		}
 		
 		partial match
 		{
-			case Some(partialP) =>
+			case Some(partialPattern) =>
 			{
-				val partialPattern = o.reduce(partialP)
 				partialPattern.ifValid
 				{
 					partialPattern.matched match
@@ -293,10 +292,10 @@ trait RepeatPatternFactory
 	}
 	
 	private[frostbridge] def translateLast[Generated]
-		(pattern: Pattern[Generated], accumulatedReverse: TList[Generated])(implicit o: Optimize) =
+		(pattern: Pattern[Generated], accumulatedReverse: TList[Generated]) =
 			translate(pattern, TranslateLast[Generated](accumulatedReverse))
 			
-	final def optional[G](pattern: Pattern[G])(implicit o: Optimize): Pattern[Option[G]] =
+	final def optional[G](pattern: Pattern[G]): Pattern[Option[G]] =
 		emptyPattern[Option[G]](None) | translate(pattern, TranslateOptional[G])
 }
 
