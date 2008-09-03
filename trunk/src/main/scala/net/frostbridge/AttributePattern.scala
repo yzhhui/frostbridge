@@ -29,7 +29,7 @@ import java.io.Writer
 * A pattern that matches an attribute.  This pattern allows an attribute to be matched
 * by name and value.
 */
-private sealed trait AttributePattern[Generated] extends UnmatchedPattern[Generated] with BasicMarshaller[Generated]
+private sealed abstract class AttributePattern[Generated] extends UnmatchedPattern[Generated] with BasicMarshaller[Generated]
 {
 	/**
 	* Describes the set of allowed names of an attribute matched by this pattern
@@ -90,7 +90,7 @@ private final case class GeneralAttributePattern[Generated]
 /** An implementation of AttributePattern that uses a ValueParser
 * to determine the value to be matched.
 */
-private sealed trait BasicAttributePattern[Generated]
+private sealed abstract class BasicAttributePattern[Generated]
 	extends AttributePattern[Generated]
 {
 	def value: ValueParser[Generated]

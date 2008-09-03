@@ -35,9 +35,12 @@ class IgnoreAnyInNameClass(nameClass: NameClass)(implicit o: Optimize)
 		
 	val anyElement: Pattern[Unit] =
 		recursiveGeneralElement(nameClass, lazyAnyPatterns,
-		(q: QName, u: Unit) => (),
-		(q: QName, u: Unit) => None,
-		unit2None)
+			new ElementOp[Unit,Unit]
+			{
+				def generate(q: QName, u: Unit) = ()
+				def marshalTranslate(q: QName, u: Unit) = None
+				def generateName(u: Unit) = None
+			})
 	
 	val anyAttribute: Pattern[Unit] = attribute(nameClass, anyValue, unit2None)
 	val anyText: Pattern[Unit] = textPattern(anyValue)
@@ -65,11 +68,13 @@ sealed abstract class AbstractPreserveAny(nameClass: NameClass)(implicit o: Opti
 	protected def lazyAnyPatterns(u: Unit): Pattern[Seq[Node]]
 	
 	val anyElement: Pattern[Element] =
-		recursiveGeneralElement(nameClass, 
-			lazyAnyPatterns,
-			(actualName: QName, childValue: Seq[Node]) => Element(actualName, childValue),
-			(generatedName: QName, e: Element) => Some(e.content),
-			(e: Element) => Some(e.name))
+		recursiveGeneralElement(nameClass, lazyAnyPatterns,
+			new ElementOp[Element,Seq[Node]]
+			{
+				def generate(actualName: QName, childValue: Seq[Node]) = Element(actualName, childValue)
+				def marshalTranslate(generatedName: QName, e: Element) = Some(e.content)
+				def generateName(e: Element) = Some(e.name)
+			})
 	
 	val anyAttribute: Pattern[Attribute] = 
 		generalAttribute(nameClass, 
@@ -175,11 +180,13 @@ class PreserveAnyInNameClass2(nameClass: NameClass)(implicit o: Optimize)
 	import out._
 	
 	val anyElement: Pattern[Node] =
-		recursiveGeneralElement[Node, Seq[Node]](nameClass, 
-			lazyAnyPatterns,
-			(actualName: QName, childValue: Seq[Node]) => Element(actualName, childValue): Node,
-			(generatedName: QName, n: Node) => n match { case e: Element => Some(e.content); case _ => None },
-			(n: Node) => n match { case e: Element => Some(e.name); case _ => None } )
+		recursiveGeneralElement[Node, Seq[Node]](nameClass, lazyAnyPatterns,
+			new ElementOp[Node,Seq[Node]]
+			{
+				def generate(actualName: QName, childValue: Seq[Node]) = Element(actualName, childValue): Node
+				def marshalTranslate(generatedName: QName, n: Node) = n match { case e: Element => Some(e.content); case _ => None }
+				def generateName(n: Node) = n match { case e: Element => Some(e.name); case _ => None }
+			})
 	
 	val anyAttribute: Pattern[Node] = 
 		generalAttribute(nameClass, 

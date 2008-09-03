@@ -44,12 +44,13 @@ private sealed trait BinaryCompoundPattern[A,B,C] extends UnmatchedPattern[C]
 	}
 	private def tracePattern(pattern: Traceable, writer: Writer, level: Int, reference: ReferenceFunction)
 	{
-		if(isSameType(pattern))
-			pattern.asInstanceOf[BinaryCompoundPattern[_,_,_]].traceFlattened(writer, level, reference)
-		else
-			pattern.embeddedTrace(writer, level+1, reference)
+		asSameType(pattern) match
+		{
+			case Some(patternSameType) => patternSameType.traceFlattened(writer, level, reference)
+			case None => pattern.embeddedTrace(writer, level+1, reference)
+		}
 	}
-	protected def isSameType(other: Traceable): Boolean
+	protected def asSameType(other: Traceable): Option[BinaryCompoundPattern[_,_,_]]
 	
 	def description = "( " + pattern1.description + " " + separator + " " + pattern2.description + " )"
 	def pattern1: Pattern[A]
@@ -163,7 +164,12 @@ private final class HeterogeneousChoice[A, B](val pattern1: Pattern[A], val patt
 	
 	lazy val matchEmpty = pattern1.matchEmpty.map(Left(_)).orElse(pattern2.matchEmpty.map(Right(_)))
 	
-	protected def isSameType(other: Traceable) = other.isInstanceOf[HeterogeneousChoice[_,_]]
+	protected def asSameType(other: Traceable) =
+		other match
+		{
+			case hc: HeterogeneousChoice[_,_] => Some(hc)
+			case _ => None
+		}
 }
 
 private[frostbridge] final class HomogeneousChoice[Generated](val pattern1: Pattern[Generated], val pattern2: Pattern[Generated])
@@ -195,7 +201,12 @@ private[frostbridge] final class HomogeneousChoice[Generated](val pattern1: Patt
 			ChainedMarshalException(g, this)(errorA :: errorB :: Nil)
 	}
 	
-	protected def isSameType(other: Traceable) = other.isInstanceOf[HomogeneousChoice[_]]
+	protected def asSameType(other: Traceable) =
+		other match
+		{
+			case hc: HomogeneousChoice[_] => Some(hc)
+			case _ => None
+		}
 }
 
 private final class OrderedSequence[A,B](val pattern1: Pattern[A], val pattern2: Pattern[B]) extends BinaryRequired[A,B]
@@ -234,7 +245,12 @@ private final class OrderedSequence[A,B](val pattern1: Pattern[A], val pattern2:
 	}
 	def separator = ":+:"
 	
-	protected def isSameType(other: Traceable) = other.isInstanceOf[OrderedSequence[_,_]]
+	protected def asSameType(other: Traceable) =
+		other match
+		{
+			case os: OrderedSequence[_,_] => Some(os)
+			case _ => None
+		}
 }
 
 private final case class SwapTranslator[A,B] extends Translator[(B,A), (A, B)]
@@ -265,7 +281,12 @@ private final class UnorderedSequence[A,B](val pattern1: Pattern[A], val pattern
 	
 	def separator = ","
 	
-	protected def isSameType(other: Traceable) = other.isInstanceOf[UnorderedSequence[_,_]]
+	protected def asSameType(other: Traceable) =
+		other match
+		{
+			case os: UnorderedSequence[_,_] => Some(os)
+			case _ => None
+		}
 }
 // for when the right is invalid
 private final case class HeterogeneousLeft[A,B] extends Translator[Either[A, B], A]
