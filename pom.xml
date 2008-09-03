@@ -45,7 +45,8 @@
 		<woodstox.version>3.2.6</woodstox.version>
 		<scalacheck.version>1.4</scalacheck.version>
 		<vscaladoc.version>1.2-SNAPSHOT</vscaladoc.version>
-		<scala.plugin.version>2.7.1</scala.plugin.version>
+		<!-- Locally built version to fix scala:run dependency resolution -->
+		<scala.plugin.version>2.7.1-m</scala.plugin.version>
 		<vscaladoc.linkdefs>file://${basedir}/vscaladocs-packageLinkDefs.properties</vscaladoc.linkdefs>
 	</properties>
 	
@@ -83,7 +84,7 @@
 			<version>${scalacheck.version}</version>
 			<scope>test</scope>
 		</dependency>
-		<!-- for the console -->
+		<!-- for scala:console -->
 		<dependency>
 			<groupId>org.scala-lang</groupId>
 			<artifactId>scala-compiler</artifactId>
@@ -109,8 +110,6 @@
 					</execution>
 				</executions>
 				<configuration>
-					<scalaVersion>${scala.version}</scalaVersion>
-					<mainClass>${main.class}</mainClass>
 					<!-- These are passed to scalac during compilation-->
 					<args>
 						<!--<arg>-optimise</arg>
@@ -120,7 +119,27 @@
 						<arg>-unchecked</arg>
 						<arg>-deprecation</arg>
 					</args>
+					<launcher>ScalaCheck.tests</launcher>
+					<launchers>
+						<launcher>
+							<id>ScalaCheck.tests</id>
+							<mainClass>net.frostbridge.TestFromMaven</mainClass>
+						</launcher>
+					</launchers>
 				</configuration>
+			</plugin>
+			<!-- This causes a jar containing the tests/examples to be generated -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>2.2</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>test-jar</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
@@ -134,7 +153,6 @@
 				<configuration>
 					<!-- this declaration indicates vscaladoc should be used instead of scaladoc -->
 					<vscaladocVersion>${vscaladoc.version}</vscaladocVersion>
-					<scalaVersion>${scala.version}</scalaVersion>
 					<jvmArgs>
 						<!-- This declares the file containing the location
 							  for the API documentation for third-party packages. -->
