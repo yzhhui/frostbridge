@@ -27,16 +27,23 @@ sealed trait MarshalException[T]
 	def invalidObject: T
 	def unmatchedPattern: Pattern[T]
 	def getRootCauses: List[RootMarshalException[_]]
+	private[frostbridge] def appendRootCauses(list: List[RootMarshalException[_]]): List[RootMarshalException[_]]
 }
 
 final case class ChainedMarshalException[T] (invalidObject: T, unmatchedPattern: Pattern[T])(causes: List[MarshalException[_]]) extends MarshalException[T]
 {
-	def getRootCauses = causes.flatMap(_.getRootCauses)
+	def getRootCauses = appendRootCauses(Nil)
+	private[frostbridge] def appendRootCauses(list: List[RootMarshalException[_]]) =
+		causes.foldLeft(Nil: List[RootMarshalException[_]])( (list, cause) => cause.appendRootCauses(list) )
+	
 }
 
 case class RootMarshalException[T](invalidObject: T, unmatchedPattern: Pattern[T]) extends MarshalException[T]
 {
 	def getRootCauses = List(this)
+	private[frostbridge] def appendRootCauses(list: List[RootMarshalException[_]]) = this :: list
+	
+	override def toString = "Object\n" + invalidObject + "\n\tdid not match pattern:\n" + Traceable.traceToString(unmatchedPattern)
 }
 object MarshalException
 {

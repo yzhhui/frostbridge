@@ -33,9 +33,9 @@ case class FTestXML(fragment: Seq[Node], valid: Boolean) extends NotNull
 case class FTestString(content: String, valid: Boolean) extends NotNull
 case class FTestQName(name: QName, valid: Boolean) extends NotNull
 
-object NoOptimizePatternGen extends PatternGen with NoOptimizeGen with DefaultPatternFrequency
+object NoOptimizePatternGen extends PatternGen with NoOptimizeGen
 
-object FullOptimizePatternGen extends PatternGen with NoOptimizeGen with DefaultPatternFrequency
+object FullOptimizePatternGen extends PatternGen with FullOptimizeGen
 
 trait NoOptimizeGen extends PatternGen
 {
@@ -45,51 +45,89 @@ trait FullOptimizeGen extends PatternGen
 {
 	protected val optimization = new InternedDeriveOptimize
 }
-trait DefaultPatternFrequency extends PatternGen
+abstract class DefaultPatternFrequency extends NotNull
 {
-	def attributeFrequency = 5
-	def elementFrequency = 1
+	def attributeDataFrequency = 5
+	def elementDataFrequency = 1
+	def textDataFrequency = 2
+	
+	def booleanFrequency = 1
+	def integerFrequency = 5
+	def doubleFrequency = 4
+	def stringFrequency = 6
+	
+	def startingFrequency = 6
+	def newFrequency(lastFrequency: Int) = (lastFrequency / 2) + 1
+	
 	def choiceFrequency = 3
-	def sequenceFrequency = 3
-	def textFrequency = 2
+	def unorderedFrequency = 5
+	def orderedFrequency = 7
+	def elementFrequency = 2
+	
+	def averageStringLength = 7.0
+	def averageChoiceLength = 5.0
+	def averageUnorderedLength = 4.0
+	def averageOrderedLength = 6.0
+	def averageIterations = 4.0
 }
 
-abstract class PatternGen extends NotNull
-{
-	def attributeFrequency: Int
-	def elementFrequency: Int
-	def choiceFrequency: Int
-	def sequenceFrequency: Int
-	def textFrequency: Int
 
+abstract class PatternGen extends DefaultPatternFrequency
+{
+	import Random._
 	protected val optimization: Optimize
 	implicit def optimize: Optimize = optimization
 
 	implicit val namespaceGenerator = xml.ArbitraryXML.defaultNamespaces.namespace
-
-	implicit lazy val arbElement = Arbitrary(anyElement)
-	implicit lazy val arbAttribute = Arbitrary(anyAttribute)
-	implicit lazy val arbText = Arbitrary(anyText)
-	implicit lazy val arbChoice = Arbitrary(anyChoice)
-	implicit lazy val arbSequence = Arbitrary(anySequence)
 	
-	val anySequence = genSequence(genAny, genAny)
-	val anyChoice = genChoice(genAny)
-	val anyElement = genElement(anyNameClass, genAny)
-	val anyAttribute = genAttribute(anyNameClass, anyValue)
-	val anyText = genText(anyValue)
+	implicit def arbElement = Arbitrary(Gen.lzy(genAnyElement))
 	
-	def genAny: Gen[FTestPattern] = genAnyImpl
-	private lazy val genAnyImpl: Gen[FTestPattern] =
+	def genAnyElement: Gen[FTestPattern] =
 	{
-		Gen.lzy(Gen.frequency(
-			(choiceFrequency, anyChoice),
-			(sequenceFrequency, anySequence),
-			(elementFrequency, anyElement),
-			(attributeFrequency, anyAttribute),
-			(textFrequency, anyText)
-		))
+		val initialPatterns = List(
+			(booleanFrequency, booleanPattern),
+			(integerFrequency, integerPattern),
+			(doubleFrequency, doublePattern)
+			/*(stringFrequency, stringPattern)*/)
+		genElement(anyNameClass, build(initialPatterns, poisson(averageIterations), startingFrequency))
 	}
+	private def build(patterns: List[(Int, Gen[FTestPattern])], iterations: Int, nextFrequency: Int): Gen[FTestPattern] =
+	{
+		require(patterns.length >= 2)
+		if(iterations == 0)
+			patterns.head._2
+		else
+		{
+			val newGen: Gen[FTestPattern] =
+				pick1(List(
+					(choiceFrequency, choicesList(pick1(patterns), poisson(averageChoiceLength) max 2)),
+					(unorderedFrequency, unorderedList(pickN(poisson(averageUnorderedLength) max 2, patterns))),
+					(orderedFrequency, orderedList(pickN(poisson(averageOrderedLength) max 2, patterns))),
+					(elementFrequency, genElement(anyNameClass, pick1(patterns))))
+				)
+			build((nextFrequency, newGen) :: patterns, iterations - 1, newFrequency(nextFrequency))
+		}
+	}
+	def unorderedList(patterns: List[Gen[FTestPattern]]): Gen[FTestPattern] =
+		patterns.reduceLeft( (p1: Gen[FTestPattern], p2: Gen[FTestPattern]) => genUnordered(p1, p2))
+	def orderedList(patterns: List[Gen[FTestPattern]]): Gen[FTestPattern] =
+		patterns.reduceLeft( (p1: Gen[FTestPattern], p2: Gen[FTestPattern]) => genOrdered(p1, p2))
+			
+	def choicesTree(pattern: Gen[FTestPattern], depth: Int): Gen[FTestPattern] =
+	{
+		if(depth <= 0)
+			pattern
+		else
+			genChoice(choicesTree(pattern, depth-1), choicesTree(pattern, depth-1))
+	}
+	def choicesList(pattern: Gen[FTestPattern], num: Int): Gen[FTestPattern] =
+	{
+		if(num <= 0)
+			pattern
+		else
+			genChoice(pattern, choicesList(pattern, num-1))
+	}
+	
 	def anyNameClass: Gen[FTestNameClass] = Gen.frequency( (1, anyName) )
 	def anyName: Gen[FTestNameClass] = genName(anyQName(namespaceGenerator, xml.ArbitraryXML.defaultStringConfig.nameLength))
 	
@@ -118,7 +156,6 @@ abstract class PatternGen extends NotNull
 			FTestNameClass(Name(name.name), Gen.value(FTestQName(name.name, true)))
 	}
 	
-	def anyValue: Gen[FTestValueParser] = Gen.frequency( (1, booleanValue), (1,  doubleValue), (1, integerValue))
 	def genValue[G](arbitrary: Arbitrary[G], valueParser: ValueParser[G]): Gen[FTestValueParser] =
 	{
 		val gen = for(value <- arbitrary.arbitrary) yield FTestString(value.toString, true)
@@ -127,10 +164,21 @@ abstract class PatternGen extends NotNull
 	def booleanValue = genValue(Arbitrary.arbBool, BooleanValue)
 	def doubleValue = genValue(Arbitrary.arbDouble, AnyDouble)
 	def integerValue = genValue(Arbitrary.arbInt, AnyInteger)
+	def stringValue = genValue(Arbitrary(xml.GenXMLStrings.nonEmptyString(poissonGen(averageStringLength))), NonEmptyString)
+	
+	def genDataPattern[G](valueParser: Gen[FTestValueParser]) =
+		Gen.frequency((textDataFrequency, genText(valueParser)),
+			(attributeDataFrequency, genAttribute(anyNameClass, valueParser)),
+			(elementDataFrequency, genTextElement(anyNameClass, valueParser)) )
+			
+	val booleanPattern: Gen[FTestPattern] = genDataPattern(booleanValue)
+	val integerPattern: Gen[FTestPattern] = genDataPattern(integerValue)
+	val doublePattern: Gen[FTestPattern] = genDataPattern(doubleValue)
+	val stringPattern: Gen[FTestPattern] = genDataPattern(stringValue)
 
-	def genChoice(implicit contentGen: Gen[FTestPattern]): Gen[FTestPattern] =
+	def genChoice(implicit contentGen1: Gen[FTestPattern], contentGen2: Gen[FTestPattern]): Gen[FTestPattern] =
 	{
-		for(a <- contentGen; b <- contentGen; selectFragment <- Arbitrary.arbitrary[Boolean]) yield
+		for(a <- contentGen1; b <- contentGen2; selectFragment <- Arbitrary.arbitrary[Boolean]) yield
 		{
 			val pattern = a.pattern.asInstanceOf[Pattern[Any]] | b.pattern.asInstanceOf[Pattern[Any]]
 			val xml =
@@ -173,7 +221,7 @@ abstract class PatternGen extends NotNull
 			FTestPattern(pattern, xml)
 		}
 	}
-	def genSequence(implicit contentGen1: Gen[FTestPattern], contentGen2: Gen[FTestPattern]): Gen[FTestPattern] =
+	def genOrdered(implicit contentGen1: Gen[FTestPattern], contentGen2: Gen[FTestPattern]): Gen[FTestPattern] =
 	{
 		for(a <- contentGen1; b <- contentGen2) yield
 		{
@@ -226,7 +274,13 @@ abstract class PatternGen extends NotNull
 			// unpack existential
 			def genImpl[G](valueParser: ValueParser[G]): FTestPattern =
 			{
-				val pattern = PatternFactory.attribute(name.name, valueParser, (g: G) => None)
+				import PatternFactory.attribute
+				val pattern =
+					name.name match
+					{
+						case n: Name => attribute(n, valueParser)
+						case other => attribute(other, valueParser, (g: G) => None)
+					}
 				val xml =
 					for(testName <- name.testName; testValue <- value.testContent) yield
 						FTestXML(Attribute(testName.name, testValue.content) :: Nil, testName.valid && testValue.valid)
@@ -241,15 +295,60 @@ abstract class PatternGen extends NotNull
 		for(name <- nameGen; content <- contentGen) yield
 		{
 			// unpacks the existential
-			def genImpl[G](contentPattern: Pattern[G]): FTestPattern = 
+			def genImpl[G](contentPattern: Pattern[G]): FTestPattern =
 			{
-				val pattern = PatternFactory.generalElement(name.name, contentPattern, (q: QName, g: G) => g, (q: QName, g: G) => None, (g: G) => None)
+				val pattern = 
+				{
+					import PatternFactory._
+					name.name match
+					{
+						case Name(q) => element(contentPattern, 
+							new NamedElementOp[G,G]
+							{
+								def name = q
+								def generate(g: G) = g
+								def marshalTranslate(g: G) = Some(g)
+							})
+						case other => generalElement(other, contentPattern, 
+							new ElementOp[G,G]
+							{
+								def generate(q: QName, g: G) = g
+								def marshalTranslate(q: QName, g: G) = None
+								def generateName(g: G) = None
+							})
+					}
+				}
 				val xml =
 					for(testName <- name.testName; testContent <- content.testXML) yield
 						FTestXML(Element(testName.name, testContent.fragment) :: Nil, testName.valid && testContent.valid)
 				FTestPattern(pattern, xml)
 			}
 			genImpl(content.pattern)
+		}
+	}
+	def genTextElement(implicit nameGen: Gen[FTestNameClass], valueGen: Gen[FTestValueParser]): Gen[FTestPattern] =
+	{
+		for(name <- nameGen; value <- valueGen) yield
+		{
+			// unpacks the existential
+			def genImpl[G](valueParser: ValueParser[G]): FTestPattern =
+			{
+				val pattern = 
+				{
+					import PatternFactory._
+					name.name match
+					{
+						case n: Name => textElement(n, valueParser)
+						case other => generalTextElement(other, valueParser,
+							new TextElementOp[G] { def generateName(g: G) = None })
+					}
+				}
+				val xml =
+					for(testName <- name.testName; testContent <- value.testContent) yield
+						FTestXML(Element(testName.name, List(Text(testContent.content))) :: Nil, testName.valid && testContent.valid)
+				FTestPattern(pattern, xml)
+			}
+			genImpl(value.value)
 		}
 	}
 	
@@ -263,5 +362,54 @@ abstract class PatternGen extends NotNull
 					FTestXML(Text(testValue.content) :: Nil, testValue.valid)
 			FTestPattern(pattern, xml)
 		}
+	}
+}
+
+object Random
+{
+	import org.scalacheck._
+	def poisson(expected: Double): Int =
+	{
+		val L = Math.exp(-expected)
+		def poissonImpl(k: Int, p: Double): Int =
+		{
+			if(p < L)
+				k
+			else
+				poissonImpl(k+1, p * StdRand.choose(0.0, 1.0))
+		}
+		poissonImpl(0, StdRand.choose(0.0, 1.0))
+	}
+	def poissonGen(expected: Double): Gen[Int] = Gen[Int] { (params: Gen.Params) => Some(poisson(expected)) }
+	def pickN[T](n: Int, frequencyValues: Seq[(Int, T)]): List[T] =
+	{
+		require(n >= 0)
+		val cumulative = accumulate(frequencyValues)
+		def doPick(remaining: Int, workingList: List[T]): List[T] =
+			if(remaining <= 0)
+				workingList
+			else
+				doPick(remaining -1, pick(cumulative) :: workingList)
+			
+		doPick(n, Nil)
+	}
+	def pick1[T](frequencyValues: Seq[(Int, T)]): T = pick(accumulate(frequencyValues))
+	private def pick[T](cumulative: (Int, List[(Int, T)])): T =
+	{
+		val (total, list) = cumulative
+		val i = StdRand.choose(1, total)
+		list.find(i <= _._1).get._2
+	}
+	private def accumulate[T](frequencyValues: Seq[(Int, T)]): (Int, List[(Int,T)]) =
+	{
+		val size = frequencyValues.size
+		require(size != 0)
+		def fold(result: (Int, List[(Int, T)]), current: (Int, T)): (Int, List[(Int, T)]) =
+		{
+			val newSum = result._1 + current._1
+			(newSum, (newSum, current._2) :: result._2)
+		}
+		val reverse = ( (0, Nil: List[(Int, T)]) /: frequencyValues )(fold)
+		(reverse._1, reverse._2.reverse)
 	}
 }

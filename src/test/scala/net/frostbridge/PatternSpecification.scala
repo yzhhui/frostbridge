@@ -23,7 +23,7 @@ import Prop._
 
 object PatternSpecification extends Properties("Pattern")
 {
-	val gen = new FullOptimizeGen with DefaultPatternFrequency
+	val gen = NoOptimizePatternGen
 	import gen.arbElement
 	specify("matches valid pattern", (test: FTestPattern) =>
 	{
@@ -52,8 +52,10 @@ object PatternSpecification extends Properties("Pattern")
 				{
 					case Some(error) =>
 					{
-						println("Error serializing generated object for pattern:")
+						println("Error serializing generated object:\n\n" +matched +"\n\nfor pattern:\n")
 						Traceable.trace(pattern)
+						println("\nBecause:")
+						println(error.getRootCauses.mkString("\n\nand\n\n"))
 						false
 					}
 					case None => true

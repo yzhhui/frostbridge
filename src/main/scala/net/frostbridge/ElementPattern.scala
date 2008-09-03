@@ -26,10 +26,45 @@ import Traceable._
 import data.ValueParser
 import java.io.Writer
 
+trait ElementOp[Generated, ChildGenerated] extends NotNull
+{
+	/** Given the name and the generated object, generate the element content, or None
+	* if the provided object is invalid. */
+	def marshalTranslate(generatedName: QName, g: Generated): Option[ChildGenerated]
+	
+	/** A function that processes the result of the child pattern. */
+	def generate(matchedName: QName, childResult: ChildGenerated): Generated
+	
+	/** A function that generates the name of the marshalled element from the generated object. */
+	def generateName(g: Generated): Option[QName]
+}
+abstract class EmptyElementOp[Generated] extends ElementOp[Generated, Unit]
+{
+	def generate(matchedName: QName): Generated
+	
+	final def marshalTranslate(generatedName: QName, g: Generated) = Some(g)
+	final def generate(matchedName: QName, u: Unit): Generated = generate(matchedName)
+}
+abstract class TextElementOp[Generated] extends ElementOp[Generated, Generated]
+{
+	final def marshalTranslate(generatedName: QName, g: Generated) = Some(g)
+	final def generate(matchedName: QName, g: Generated) = g
+}
+abstract class NamedElementOp[Generated, ChildGenerated] extends ElementOp[Generated, ChildGenerated]
+{
+	def name: QName
+	def generate(g: ChildGenerated): Generated
+	def marshalTranslate(g: Generated): Option[ChildGenerated]
+	
+	def generateName(g: Generated) = Some(name)
+	final def generate(matchedName: QName, g: ChildGenerated): Generated = generate(g)
+	final def marshalTranslate(generatedName: QName, g: Generated): Option[ChildGenerated] = marshalTranslate(g)
+}
+
 /**
 * A pattern that matches an element based on its name, attributes, child elements, and text content.
 */
-private trait ElementPattern[Generated, ChildGenerated] extends UnmatchedPattern[Generated]
+private abstract class ElementPattern[Generated, ChildGenerated] extends UnmatchedPattern[Generated]
 	with ReferencedTraceable with MarshalErrorTranslator[Generated]
 {
 	/**
@@ -41,6 +76,9 @@ private trait ElementPattern[Generated, ChildGenerated] extends UnmatchedPattern
 	* text content.  Use a compound pattern for multiple children and EmptyPattern for no content.
 	*/
 	def childrenPattern: Pattern[ChildGenerated]
+	
+	def op: ElementOp[Generated, ChildGenerated]
+	/*
 	def marshalTranslate(generatedName: QName, g: Generated): Option[ChildGenerated]
 	
 	/**
@@ -48,7 +86,7 @@ private trait ElementPattern[Generated, ChildGenerated] extends UnmatchedPattern
 	*/
 	def generate(matchedName: QName, childResult: ChildGenerated): Generated
 	
-	def generateName(g: Generated): Option[QName]
+	def generateName(g: Generated): Option[QName]*/
 	
 	private[frostbridge] final def deriveImpl(node: in.Node)(implicit o: Optimize): Pattern[Generated] =
 	{
@@ -58,7 +96,7 @@ private trait ElementPattern[Generated, ChildGenerated] extends UnmatchedPattern
 			{
 				val actualName = open.elementName
 				if(nameClass.matches(actualName))
-					content(actualName, childrenPattern, this)
+					content(actualName, childrenPattern, op)
 				else
 					NotAllowedPattern
 			}
@@ -74,8 +112,8 @@ private trait ElementPattern[Generated, ChildGenerated] extends UnmatchedPattern
 	{
 		translateMarshalError(g)
 		{
-			for(name <- orError(g, generateName(g));
-				childValue <- orError(g, marshalTranslate(name, g));
+			for(name <- orError(g, op.generateName(g));
+				childValue <- orError(g, op.marshalTranslate(name, g));
 				content <- childrenPattern.marshal(childValue, TList.empty).right)
 			yield
 				out.Element(name, content.reverse) :: reverseXML
@@ -101,95 +139,74 @@ private object EmptyElementPattern
 {
 	val empty = emptyPattern(())
 }
-private trait EmptyElementPattern[Generated] extends ElementPattern[Generated, Unit]
+private abstract class EmptyElementPattern[Generated] extends ElementPattern[Generated, Unit]
 {
 	def childrenPattern = EmptyElementPattern.empty
-	def marshalTranslate(generatedName: QName, g: Generated) = Some(())
+	def op: EmptyElementOp[Generated]
 }
 private final case class SimpleEmptyElementPattern[Generated]
 	(nameClass: Name, value: Generated) extends EmptyElementPattern[Generated]
 {
-	def generate(matchedName: QName, u: Unit) = value
-	def generateName(g: Generated) = Some(nameClass.name)
+	val op =
+		new EmptyElementOp[Generated]
+		{
+			def generate(matchedName: QName) = value
+			def generateName(g: Generated) = Some(nameClass.name)
+		}
 	lazy val hash = List(getClass, nameClass, value).hashCode
 }
 private final case class AdvancedEmptyElementPattern[Generated]
-	(nameClass: NameClass, value: QName => Generated, generateNameA: Generated => Option[QName]) extends EmptyElementPattern[Generated]
+	(nameClass: NameClass, op: EmptyElementOp[Generated]) extends EmptyElementPattern[Generated]
 {
-	def generate(matchedName: QName, u: Unit) = value(matchedName)
-	def generateName(g: Generated) = generateNameA(g)
-	lazy val hash = List(getClass, nameClass, value, generateNameA).hashCode
+	lazy val hash = List(getClass, nameClass, op).hashCode
 }
 
 private final class SimpleElementPattern[Generated, ChildGenerated]
-	(val nameClass: Name, val childrenPattern: Pattern[ChildGenerated],
-	val generateA: ChildGenerated => Generated,
-	val marshalTranslateA: Generated => Option[ChildGenerated])
+	(val childrenPattern: Pattern[ChildGenerated], val op: NamedElementOp[Generated, ChildGenerated])
 	extends ElementPattern[Generated, ChildGenerated]
 {
-	def generateName(g: Generated) = Some(nameClass.name)
-	def generate(generatedName: QName, g: ChildGenerated) = generateA(g)
-	def marshalTranslate(generatedName: QName, g: Generated) = marshalTranslateA(g)
-	lazy val hash = List(getClass, nameClass, childrenPattern, generateA, marshalTranslateA).hashCode
+	def nameClass = Name(op.name)
+	lazy val hash = List(getClass, childrenPattern, op).hashCode
 	override def equals(o: Any) =
 	{
 		o match
 		{
-			case e: SimpleElementPattern[_, _] =>
-				e.nameClass == nameClass && (childrenPattern eq e.childrenPattern) &&
-				generateA == e.generateA && marshalTranslateA == e.marshalTranslateA
+			case e: SimpleElementPattern[_, _] => e.op == op && (childrenPattern eq e.childrenPattern)
 			case _ => false
 		}
 	}
 }
 
 private final class AdvancedElementPattern[Generated, ChildGenerated]
-	(val nameClass: NameClass, val childrenPattern: Pattern[ChildGenerated],
-	val generateA: (QName, ChildGenerated) => Generated,
-	val marshalTranslateA: (QName, Generated) => Option[ChildGenerated],
-	val generateNameA: Generated => Option[QName])
+	(val nameClass: NameClass, val childrenPattern: Pattern[ChildGenerated], val op: ElementOp[Generated, ChildGenerated])
 	extends ElementPattern[Generated, ChildGenerated]
 {
-	def generateName(g: Generated) = generateNameA(g)
-	def generate(generatedName: QName, g: ChildGenerated) = generateA(generatedName, g)
-	def marshalTranslate(generatedName: QName, g: Generated) = marshalTranslateA(generatedName, g)
-	lazy val hash = List(getClass, nameClass, childrenPattern, generateA, marshalTranslateA, generateNameA).hashCode
+	lazy val hash = List(getClass, nameClass, childrenPattern, op).hashCode
 	override def equals(o: Any) =
 	{
 		o match
 		{
 			case e: AdvancedElementPattern[_, _] =>
-				e.nameClass == nameClass && (childrenPattern eq e.childrenPattern) &&
-				generateA == e.generateA && marshalTranslateA == e.marshalTranslateA && e.generateNameA == generateNameA
+				e.nameClass == nameClass && (childrenPattern eq e.childrenPattern) && op == e.op
 			case _ => false
 		}
 	}
 }
 private final case class SimpleRecursiveElementPattern[Generated, ChildGenerated]
-	(nameClass: Name, childrenPatternA: Unit => Pattern[ChildGenerated],
-	generateA: ChildGenerated => Generated,
-	marshalTranslateA: Generated => Option[ChildGenerated])
+	(childrenPatternA: Unit => Pattern[ChildGenerated], op: NamedElementOp[Generated, ChildGenerated])
 	extends ElementPattern[Generated, ChildGenerated]
 {
+	def nameClass = Name(op.name)
 	lazy val childrenPattern = childrenPatternA(())
-	def generateName(g: Generated) = Some(nameClass.name)
-	def generate(generatedName: QName, g: ChildGenerated) = generateA(g)
-	def marshalTranslate(generatedName: QName, g: Generated) = marshalTranslateA(g)
-	lazy val hash = List(getClass, nameClass, childrenPatternA, generateA, marshalTranslateA).hashCode
+	lazy val hash = List(getClass, childrenPatternA).hashCode
 	
 }
 private final case class AdvancedRecursiveElementPattern[Generated, ChildGenerated]
-	(nameClass: NameClass, childrenPatternA: Unit => Pattern[ChildGenerated],
-	generateA: (QName, ChildGenerated) => Generated,
-	marshalTranslateA: (QName, Generated) => Option[ChildGenerated],
-	generateNameA: Generated => Option[QName])
+	(nameClass: NameClass, childrenPatternA: Unit => Pattern[ChildGenerated], op: ElementOp[Generated, ChildGenerated])
 	extends ElementPattern[Generated, ChildGenerated]
 {
 	lazy val childrenPattern = childrenPatternA(())
-	def generateName(g: Generated) = generateNameA(g)
-	def generate(generatedName: QName, g: ChildGenerated) = generateA(generatedName, g)
-	def marshalTranslate(generatedName: QName, g: Generated) = marshalTranslateA(generatedName, g)
-	lazy val hash = List(getClass, nameClass, childrenPatternA, generateA, marshalTranslateA, generateNameA).hashCode
+	lazy val hash = List(getClass, nameClass, childrenPatternA, op).hashCode
 }
 
 private[frostbridge] trait ElementPatternFactory
@@ -197,38 +214,33 @@ private[frostbridge] trait ElementPatternFactory
 	final def emptyElement[Generated](name: Name, value: Generated)(implicit o: Optimize): Pattern[Generated] =
 		o.intern(SimpleEmptyElementPattern(name, value))
 	
-	final def generalEmptyElement[Generated](nameClass: NameClass, value: QName => Generated,
-		generateName: Generated => Option[QName])(implicit o: Optimize): Pattern[Generated] =
-			o.intern(AdvancedEmptyElementPattern[Generated](nameClass, value, generateName))
+	final def generalEmptyElement[Generated](nameClass: NameClass, op: EmptyElementOp[Generated])
+		(implicit o: Optimize): Pattern[Generated] = o.intern(AdvancedEmptyElementPattern[Generated](nameClass, op))
 
-	final def element[Generated, ChildGenerated] (name: Name, childrenPattern: Pattern[ChildGenerated],
-		generate: (ChildGenerated => Generated),
-		marshalTranslate: Generated => Option[ChildGenerated])(implicit o: Optimize): Pattern[Generated] =
-			o.intern(new SimpleElementPattern[Generated, ChildGenerated](name, o.reduce(childrenPattern), generate, marshalTranslate))
+	final def element[Generated, ChildGenerated] (childrenPattern: Pattern[ChildGenerated],
+		op: NamedElementOp[Generated, ChildGenerated])(implicit o: Optimize): Pattern[Generated] =
+			o.intern(new SimpleElementPattern[Generated, ChildGenerated](o.reduce(childrenPattern), op))
 
 	final def generalElement[Generated, ChildGenerated](nameClass: NameClass, childrenPattern: Pattern[ChildGenerated],
-		generate: (QName, ChildGenerated) => Generated, marshalTranslate: (QName, Generated) => Option[ChildGenerated],
-		generateName: Generated => Option[QName])(implicit o: Optimize): Pattern[Generated] =
-			o.intern(new AdvancedElementPattern[Generated, ChildGenerated](nameClass, o.reduce(childrenPattern), generate, marshalTranslate, generateName))
+		op: ElementOp[Generated, ChildGenerated])(implicit o: Optimize): Pattern[Generated] =
+			o.intern(new AdvancedElementPattern[Generated, ChildGenerated](nameClass, o.reduce(childrenPattern), op))
 		
-	final def recursiveElement[Generated, ChildGenerated] (name: Name, childrenPattern: Unit => Pattern[ChildGenerated],
-		generate: (ChildGenerated => Generated),
-		marshalTranslate: Generated => Option[ChildGenerated])(implicit o: Optimize): Pattern[Generated] =
-			o.intern(SimpleRecursiveElementPattern[Generated, ChildGenerated](name, childrenPattern, generate, marshalTranslate))
+	final def recursiveElement[Generated, ChildGenerated] (childrenPattern: Unit => Pattern[ChildGenerated],
+		op: NamedElementOp[Generated, ChildGenerated])(implicit o: Optimize): Pattern[Generated] =
+			o.intern(SimpleRecursiveElementPattern[Generated, ChildGenerated](childrenPattern, op))
 
 	final def recursiveGeneralElement[Generated, ChildGenerated](nameClass: NameClass,
-		childrenPattern: Unit => Pattern[ChildGenerated],
-		generate: (QName, ChildGenerated) => Generated, marshalTranslate: (QName, Generated) => Option[ChildGenerated],
-		generateName: Generated => Option[QName])(implicit o: Optimize): Pattern[Generated] =
-			o.intern(AdvancedRecursiveElementPattern[Generated, ChildGenerated](nameClass, childrenPattern, generate, marshalTranslate, generateName))
+		childrenPattern: Unit => Pattern[ChildGenerated], op: ElementOp[Generated, ChildGenerated])
+		(implicit o: Optimize): Pattern[Generated] =
+			o.intern(AdvancedRecursiveElementPattern[Generated, ChildGenerated](nameClass, childrenPattern, op))
 		
 	final def textElement[Generated](name: Name, textContent: ValueParser[Generated])(implicit o: Optimize): Pattern[Generated] =
 		o.intern(SimpleTextElementPattern[Generated](name, textContent))
 	
 	final def generalTextElement[Generated]
-		(nameClass: NameClass, textContent: ValueParser[Generated],
-		generateName: Generated => Option[QName])(implicit o: Optimize): Pattern[Generated] =
-			o.intern(AdvancedTextElementPattern[Generated](nameClass, textContent, generateName))
+		(nameClass: NameClass, textContent: ValueParser[Generated], op: TextElementOp[Generated])
+		(implicit o: Optimize): Pattern[Generated] =
+			o.intern(AdvancedTextElementPattern[Generated](nameClass, textContent, op))
 }
 
 private sealed abstract class TextElementPattern[Generated](implicit o: Optimize) extends ElementPattern[Generated, Generated]
@@ -241,25 +253,23 @@ private sealed abstract class TextElementPattern[Generated](implicit o: Optimize
 private final case class SimpleTextElementPattern[Generated](nameClass: Name, textContent: ValueParser[Generated])(implicit o: Optimize)
 	extends TextElementPattern[Generated]()(o)
 {
-	def generateName(g: Generated) = Some(nameClass.name)
+	val op = new TextElementOp[Generated] { def generateName(g: Generated) = Some(nameClass.name) }
 	lazy val hash = List(getClass, nameClass, textContent).hashCode
 }
 private final case class AdvancedTextElementPattern[Generated]
-	(nameClass: NameClass, textContent: ValueParser[Generated], generateNameA: Generated => Option[QName])(implicit o: Optimize)
+	(nameClass: NameClass, textContent: ValueParser[Generated], op: TextElementOp[Generated])(implicit o: Optimize)
 	extends TextElementPattern[Generated]()(o)
 {
-	def generateName(g: Generated) = generateNameA(g)
-	lazy val hash = List(getClass, nameClass, textContent, generateNameA).hashCode
+	lazy val hash = List(getClass, nameClass, textContent, op).hashCode
 }
 
 private object ElementContentPattern
 {
 	def content[Generated, ChildGenerated](matchedName: QName, contentPattern: Pattern[ChildGenerated],
-		elementPattern: ElementPattern[Generated, ChildGenerated])
-		(implicit o: Optimize): Pattern[Generated] =
+		op: ElementOp[Generated, ChildGenerated])(implicit o: Optimize): Pattern[Generated] =
 	{
 		val pattern = o.reduce(contentPattern)
-		pattern.ifValid { o.intern(new ElementContentPattern[Generated, ChildGenerated](matchedName, pattern, elementPattern)) }
+		pattern.ifValid { o.intern(new ElementContentPattern[Generated, ChildGenerated](matchedName, pattern, op)) }
 	}
 }
 /**
@@ -267,15 +277,15 @@ private object ElementContentPattern
 * angle bracket of a start tag.
 */
 private sealed class ElementContentPattern[Generated, Input]
-	(val matchedName: QName, val pattern: Pattern[Input], val elementPattern: ElementPattern[Generated, Input])
+	(val matchedName: QName, val pattern: Pattern[Input], val op: ElementOp[Generated, Input])
 	extends UnmatchedPattern[Generated] with MarshalInvalid[Generated]
 {
-	lazy val hash = List(getClass, matchedName, pattern, elementPattern).hashCode
+	lazy val hash = List(getClass, matchedName, pattern, op).hashCode
 	override def equals(o: Any) =
 		o match
 		{
 			case e: ElementContentPattern[_, _] => (this eq e) || 
-				(matchedName == e.matchedName && (pattern eq e.pattern) && (elementPattern eq e.pattern))
+				(matchedName == e.matchedName && (pattern eq e.pattern) && (op == e.op))
 			case _ => false
 		}
 	def matchEmpty = None
@@ -306,13 +316,13 @@ private sealed class ElementContentPattern[Generated, Input]
 	
 	private[frostbridge] final def deriveImpl(node: in.Node)(implicit o: Optimize) =
 	{
-		val derived = content(matchedName, pattern.derive(node), elementPattern)
+		val derived = content(matchedName, pattern.derive(node), op)
 		node match
 		{
 			case end: in.EndTag =>
 				pattern.matchEmpty match
 				{
-					case Some(value) => derived | emptyPattern(elementPattern.generate(matchedName, value))
+					case Some(value) => derived | emptyPattern(op.generate(matchedName, value))
 					case None => derived
 				}
 			case _ =>

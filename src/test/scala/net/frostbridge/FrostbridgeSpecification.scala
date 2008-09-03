@@ -21,7 +21,7 @@ package net.frostbridge
 import org.scalacheck._
 import Prop._
 
-class FrostbridgeSpecification extends Properties("Frostbridge")
+object FrostbridgeSpecification extends Properties("Frostbridge")
 {
 	include(PatternSpecification)
 	include(util.TruncateSpecification)
@@ -30,4 +30,17 @@ class FrostbridgeSpecification extends Properties("Frostbridge")
 	import xml.ArbitraryXML
 	specify("XML Test", forAll(ArbitraryXML.defaultXML)((x: String) => true ))
 }
-object FrostbridgeSpecification extends FrostbridgeSpecification
+
+object TestFromMaven
+{
+	def main(args: Array[String]): Unit =
+	{
+		import Test._
+		val failed = checkProperties(FrostbridgeSpecification, defaultParams).filter(result => !result._2.passed)
+		if(failed.isEmpty)
+			println("All tests PASSED.")
+		else
+			for((testName, result) <- failed)
+				ConsoleReporter.testReport(testName, result)
+	}
+}
