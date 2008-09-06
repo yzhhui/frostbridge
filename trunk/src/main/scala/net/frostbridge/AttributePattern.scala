@@ -29,16 +29,17 @@ import java.io.Writer
 * A pattern that matches an attribute.  This pattern allows an attribute to be matched
 * by name and value.
 */
-private sealed abstract class AttributePattern[Generated] extends UnmatchedPattern[Generated] with BasicMarshaller[Generated]
+sealed abstract class AttributePattern[Generated] extends UnmatchedPattern[Generated] with BasicMarshaller[Generated]
 {
 	/**
 	* Describes the set of allowed names of an attribute matched by this pattern
 	*/
 	def nameClass: NameClass
 	
-	def contentDescription: String
 	def generate(attributeName: QName, attributeValue: String): Option[Generated]
 	def marshalImpl(g: Generated): Option[out.Attribute]
+	
+	def contentDescription: String
 	
 	def matchEmpty = None
 	
@@ -49,7 +50,7 @@ private sealed abstract class AttributePattern[Generated] extends UnmatchedPatte
 			case attribute: in.Attribute =>
 			{
 				if(nameClass.matches(attribute.name))
-					generate(attribute.name, attribute.value).map(emptyPattern(_)).getOrElse(NotAllowedPattern)
+					generate(attribute.name, attribute.value).map(EmptyPattern(_)).getOrElse(NotAllowedPattern)
 				else
 					NotAllowedPattern
 			}
@@ -77,21 +78,13 @@ private sealed abstract class AttributePattern[Generated] extends UnmatchedPatte
 	protected def traceContent(writer: Writer) = writer.write(contentDescription)
 }
 
-private final case class GeneralAttributePattern[Generated]
-	(nameClass: NameClass, contentDescription: String, generateA: (QName, String) => Option[Generated],
-	marshalA: Generated => Option[out.Attribute]) extends AttributePattern[Generated]
-{
-	def generate(attributeName: QName, attributeValue: String) = generateA(attributeName, attributeValue)
-	def marshalImpl(g: Generated) = marshalA(g)
-	
-	lazy val hash = List(getClass, nameClass, contentDescription, generateA, marshalA).hashCode
-}
+abstract class AdvancedAttributePattern[Generated](val nameClass: NameClass, val contentDescription: String)
+	extends AttributePattern[Generated]
 
 /** An implementation of AttributePattern that uses a ValueParser
 * to determine the value to be matched.
 */
-private sealed abstract class BasicAttributePattern[Generated]
-	extends AttributePattern[Generated]
+sealed abstract class BasicAttributePattern[Generated] extends AttributePattern[Generated]
 {
 	def value: ValueParser[Generated]
 	def generateName(g: Generated): Option[QName]
@@ -107,33 +100,18 @@ private sealed abstract class BasicAttributePattern[Generated]
 			out.Attribute(name, value)
 	}
 }
-private final case class SimpleAttributePattern[Generated](nameClass: Name, value: ValueParser[Generated])
+case class SimpleAttributePattern[Generated](name: QName, value: ValueParser[Generated])
 	extends BasicAttributePattern[Generated]
 {
+	def nameClass = Name(name)
 	def generateName(g: Generated) = Some(nameClass.name)
-	lazy val hash = List(getClass, nameClass, value).hashCode
 }
 
-private final case class AdvancedAttributePattern[Generated]
-	(nameClass: NameClass, value: ValueParser[Generated], generateNameA: Generated => Option[QName])
+abstract class GeneralAttributePattern[Generated](val nameClass: NameClass, val value: ValueParser[Generated])
 	extends BasicAttributePattern[Generated]
-{
-	def generateName(g: Generated) = generateNameA(g)
-	lazy val hash = List(getClass, nameClass, value, generateNameA).hashCode
-}
-
 
 private[frostbridge] trait AttributePatternFactory
 {
-	def attribute[Generated](name: Name, value: ValueParser[Generated]): Pattern[Generated] =
+	def attribute[Generated](name: QName, value: ValueParser[Generated]): Pattern[Generated] =
 		SimpleAttributePattern[Generated](name, value)
-	
-	def attribute[Generated](nameClass: NameClass, value: ValueParser[Generated],
-		generateNameA: Generated => Option[QName]): Pattern[Generated] =
-			AdvancedAttributePattern[Generated](nameClass, value, generateNameA)
-		
-	def generalAttribute[Generated](nameClass: NameClass, contentDescription: String,
-		generate: (QName, String) => Option[Generated],
-		marshal: Generated => Option[out.Attribute]): Pattern[Generated] =
-			GeneralAttributePattern[Generated](nameClass, contentDescription, generate, marshal)
 }

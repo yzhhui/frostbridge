@@ -51,11 +51,18 @@ abstract class DefaultPatternFrequency extends NotNull
 	def unorderedFrequency = 5
 	def orderedFrequency = 7
 	def elementFrequency = 2
+	def repeatFrequency = 1
+	
+	def infiniteFrequency = 7
+	def finiteFrequency = 4
+	
+	def averageFiniteUpperBound = 50.0
 	
 	def averageStringLength = 7.0
 	def averageChoiceLength = 5.0
 	def averageUnorderedLength = 4.0
 	def averageOrderedLength = 6.0
+	def averageRepeatStart = 1.5
 	def averageIterations = 4.0
 }
 
@@ -85,18 +92,30 @@ class PatternGen extends DefaultPatternFrequency
 		{
 			val newGen: Gen[FTestPattern] =
 				pick1(List(
-					(choiceFrequency, choicesList(pick1(patterns), poisson(averageChoiceLength) max 2)),
-					(unorderedFrequency, unorderedList(pickN(poisson(averageUnorderedLength) max 2, patterns))),
-					(orderedFrequency, orderedList(pickN(poisson(averageOrderedLength) max 2, patterns))),
-					(elementFrequency, genElement(anyNameClass, pick1(patterns))))
-				)
+					(choiceFrequency, choicesList(pick1(patterns), poisson(averageChoiceLength))),
+					(unorderedFrequency, unorderedList(pickN(poisson(averageUnorderedLength), patterns))),
+					(orderedFrequency, orderedList(pickN(poisson(averageOrderedLength), patterns))),
+					//(repeatFrequency, genRepeat(pick1(patterns), poissonGen(averageRepeatStart), genUpperBound)),
+					(elementFrequency, genElement(anyNameClass, pick1(patterns)))
+				))
 			build((nextFrequency, newGen) :: patterns, iterations - 1, newFrequency(nextFrequency))
 		}
 	}
-	def unorderedList(patterns: List[Gen[FTestPattern]]): Gen[FTestPattern] =
-		patterns.reduceLeft( (p1: Gen[FTestPattern], p2: Gen[FTestPattern]) => genUnordered(p1, p2))
-	def orderedList(patterns: List[Gen[FTestPattern]]): Gen[FTestPattern] =
-		patterns.reduceLeft( (p1: Gen[FTestPattern], p2: Gen[FTestPattern]) => genOrdered(p1, p2))
+	def unorderedList(patterns: List[Gen[FTestPattern]]): Gen[FTestPattern] = sequence(patterns, genUnordered(_,_))
+	def orderedList(patterns: List[Gen[FTestPattern]]): Gen[FTestPattern] = sequence(patterns, genOrdered(_,_))
+	
+	private def sequence(patterns: List[Gen[FTestPattern]],
+		combine: (Gen[FTestPattern], Gen[FTestPattern]) => Gen[FTestPattern]): Gen[FTestPattern] =
+	{
+		patterns match
+		{
+			case Nil => emptyGen
+			case head :: Nil => head
+			case _ => 
+				patterns.reduceLeft( (p1: Gen[FTestPattern], p2: Gen[FTestPattern]) => combine(p1, p2))
+		}
+	}
+	def emptyGen: Gen[FTestPattern] = Gen.value(FTestPattern(EmptyPattern(()), Gen.value(FTestXML(Nil,true)) ) )
 			
 	def choicesTree(pattern: Gen[FTestPattern], depth: Int): Gen[FTestPattern] =
 	{
@@ -161,6 +180,41 @@ class PatternGen extends DefaultPatternFrequency
 	val doublePattern: Gen[FTestPattern] = genDataPattern(doubleValue)
 	val stringPattern: Gen[FTestPattern] = genDataPattern(stringValue)
 
+	def genRepeat(implicit contentGen: Gen[FTestPattern], startGen: Gen[Int], endGen: Gen[UpperBound]): Gen[FTestPattern] =
+	{
+		contentGen.flatMap {
+			(a: FTestPattern) =>
+			{
+				def fold(t1: FTestXML, t2: FTestXML): FTestXML =
+					FTestXML(t1.fragment ++ t2.fragment, t1.valid && t2.valid && validSequence(t1.fragment, t2.fragment))
+				val pattern = a.pattern
+				for(start <- startGen; end <- endGen; length <- genInBounds(start, end)) yield
+				{
+					val testXML =
+						for(seq <- Gen.containerOfN[List,FTestXML](length, a.testXML)) yield
+							seq.foldLeft(FTestXML(Nil, true))(fold)
+					FTestPattern(pattern(start, end), testXML)
+				}
+			}
+		}
+	}
+	def genInBounds(lower: Int, upper: UpperBound): Gen[Int] =
+	{
+		require(lower >= 0)
+		val u =
+			upper match
+			{
+				case Infinite => Math.MAX_INT
+				case Finite(f) => f
+			}
+		Gen.choose(lower, u)
+	}
+	def genUpperBound: Gen[UpperBound] =
+		Gen.frequency(
+			(finiteFrequency, for(f <- poissonGen(averageFiniteUpperBound)) yield Finite(f)),
+			(infiniteFrequency, Gen.value(Infinite))
+		)
+		
 	def genChoice(implicit contentGen1: Gen[FTestPattern], contentGen2: Gen[FTestPattern]): Gen[FTestPattern] =
 	{
 		for(a <- contentGen1; b <- contentGen2; selectFragment <- Arbitrary.arbitrary[Boolean]) yield
@@ -263,8 +317,12 @@ class PatternGen extends DefaultPatternFrequency
 				val pattern =
 					name.name match
 					{
-						case n: Name => attribute(n, valueParser)
-						case other => attribute(other, valueParser, (g: G) => None)
+						case Name(q) => attribute(q, valueParser)
+						case other => 
+							new GeneralAttributePattern(other, valueParser)
+							{
+								def generateName(g: G) = None
+							}
 					}
 				val xml =
 					for(testName <- name.testName; testValue <- value.testContent) yield
@@ -287,20 +345,19 @@ class PatternGen extends DefaultPatternFrequency
 					import PatternFactory._
 					name.name match
 					{
-						case Name(q) => element(contentPattern, 
-							new NamedElementOp[G,G]
+						case Name(q) => 
+							new NamedElementPattern[G,G](q, contentPattern)
 							{
-								def name = q
 								def generate(g: G) = g
 								def marshalTranslate(g: G) = Some(g)
-							})
-						case other => generalElement(other, contentPattern, 
-							new ElementOp[G,G]
+							}
+						case other =>
+							new GeneralElementPattern[G,G](other, contentPattern)
 							{
 								def generate(q: QName, g: G) = g
 								def marshalTranslate(q: QName, g: G) = None
 								def generateName(g: G) = None
-							})
+							}
 					}
 				}
 				val xml =
@@ -323,9 +380,12 @@ class PatternGen extends DefaultPatternFrequency
 					import PatternFactory._
 					name.name match
 					{
-						case n: Name => textElement(n, valueParser)
-						case other => generalTextElement(other, valueParser,
-							new TextElementOp[G] { def generateName(g: G) = None })
+						case Name(q) => TextElement(q, valueParser)
+						case other =>
+							new GeneralTextElementPattern(other, valueParser)
+							{
+								def generateName(g: G) = None
+							}
 					}
 				}
 				val xml =
@@ -341,13 +401,14 @@ class PatternGen extends DefaultPatternFrequency
 	{
 		for(value <- valueGen) yield
 		{
-			val pattern = PatternFactory.textPattern(value.value)
+			val pattern = TextPattern(value.value)
 			val xml =
 				for(testValue <- value.testContent) yield
 					FTestXML(Text(testValue.content) :: Nil, testValue.valid)
 			FTestPattern(pattern, xml)
 		}
 	}
+	
 }
 
 object Random
@@ -382,6 +443,7 @@ object Random
 	private def pick[T](cumulative: (Int, List[(Int, T)])): T =
 	{
 		val (total, list) = cumulative
+		require(total >= 1)
 		val i = StdRand.choose(1, total)
 		list.find(i <= _._1).get._2
 	}

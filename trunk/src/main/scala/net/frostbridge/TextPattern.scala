@@ -25,59 +25,9 @@ import PatternFactory._
 import data.ValueParser
 import util.TList
 
-private[frostbridge] trait ContentPatternFactory
-{
-	def textPattern[Generated](content: ValueParser[Generated]): Pattern[Generated] =
-		TextPattern[Generated](content)
-		
-	def commentPattern[Generated](content: ValueParser[Generated]): Pattern[Generated] =
-		CommentPattern[Generated](content)
-		
-	def processingInstructionPattern[Generated](target: String, content: ValueParser[Generated]): Pattern[Generated] =
-		BasicPIValuePattern[Generated](target, content)
-		
-	def processingInstructionPattern[Generated]
-		(targetAllowed: String => Boolean, targetDescription: String, data: ValueParser[Generated],
-		getTarget: Generated => Option[String]): Pattern[Generated] =
-			AdvancedPIValuePattern[Generated](targetAllowed, targetDescription, data, getTarget)
-		
-	def generalProcessingInstructionPattern[Generated] (description: String,
-		generate: in.ProcessingInstruction => Option[Generated],
-		getTargetAndValue: Generated => Option[out.ProcessingInstruction]): Pattern[Generated] =
-			GeneralProcessingInstructionPattern[Generated](description, generate, getTargetAndValue)
-}
-
-/**
-* A pattern that matches text and generates a value using a ValueParser.
-*/
-private sealed case class TextPattern[Generated](content: ValueParser[Generated]) extends ContentPattern[Generated]
-{
-	lazy val matchEmpty = content.generate("")
-	protected def nodeFromString(string: String) = out.Text(string)
-	
-	lazy val hash = List(getClass, content).hashCode
-	
-	def derive(node: in.Node) =
-	{
-		node match
-		{
-			case text: in.Text =>
-			{
-				content.generate(text.value) match
-				{
-					case Some(value) => emptyPattern(value)
-					case None => NotAllowedPattern
-				}
-			}
-			case close: in.Close => this
-			case _ => NotAllowedPattern
-		}
-	}
-	def description = content.dataDescription
-}
 
 /** A pattern that has some single content value (Text or a Comment) */
-private sealed trait ContentPattern[Generated] extends UnmatchedPattern[Generated] with BasicMarshaller[Generated]
+sealed trait ContentPattern[Generated] extends UnmatchedPattern[Generated] with BasicMarshaller[Generated]
 {
 	def content: ValueParser[Generated]
 	
@@ -95,12 +45,39 @@ private sealed trait ContentPattern[Generated] extends UnmatchedPattern[Generate
 }
 
 /**
+* A pattern that matches text and generates a value using a ValueParser.
+*/
+case class TextPattern[Generated](content: ValueParser[Generated]) extends ContentPattern[Generated]
+{
+	lazy val matchEmpty = content.generate("")
+	protected def nodeFromString(string: String) = out.Text(string)
+	
+	def derive(node: in.Node) =
+	{
+		node match
+		{
+			case text: in.Text =>
+			{
+				content.generate(text.value) match
+				{
+					case Some(value) => EmptyPattern(value)
+					case None => NotAllowedPattern
+				}
+			}
+			case close: in.Close => this
+			case _ => NotAllowedPattern
+		}
+	}
+	def description = content.dataDescription
+}
+
+
+/**
 * A pattern that matches a comment and generates a value from the comment content using a ValueParser.
 */
-private sealed case class CommentPattern[Generated](content: ValueParser[Generated]) extends ContentPattern[Generated]
+case class CommentPattern[Generated](content: ValueParser[Generated]) extends ContentPattern[Generated]
 {
-	lazy val hash = List(getClass, content).hashCode
-	lazy val matchEmpty = None
+	def matchEmpty = None
 	def derive(node: in.Node) =
 	{
 		node match
@@ -109,7 +86,7 @@ private sealed case class CommentPattern[Generated](content: ValueParser[Generat
 			{
 				content.generate(comment.content) match
 				{
-					case Some(value) => emptyPattern(value)
+					case Some(value) => EmptyPattern(value)
 					case None => NotAllowedPattern
 				}
 			}
@@ -124,18 +101,18 @@ private sealed case class CommentPattern[Generated](content: ValueParser[Generat
 
 /** A pattern that matches a processing instruction and generates a value from its 
 * target and data. */
-private trait ProcessingInstructionPattern[Generated] extends UnmatchedPattern[Generated] with BasicMarshaller[Generated]
+abstract class ProcessingInstructionPattern[Generated] extends UnmatchedPattern[Generated] with BasicMarshaller[Generated]
 {
 	def generate(pi: in.ProcessingInstruction): Option[Generated]
 	def getTargetAndValue(g: Generated): Option[out.ProcessingInstruction]
 	
-	lazy val matchEmpty = None
+	def matchEmpty = None
 	
 	def derive(node: in.Node) =
 	{
 		node match
 		{
-			case pi: in.ProcessingInstruction => generate(pi).map(emptyPattern(_)).getOrElse(NotAllowedPattern)
+			case pi: in.ProcessingInstruction => generate(pi).map(EmptyPattern(_)).getOrElse(NotAllowedPattern)
 			case close: in.Close => this
 			case _ => NotAllowedPattern
 		}
@@ -147,7 +124,7 @@ private trait ProcessingInstructionPattern[Generated] extends UnmatchedPattern[G
 	def trace(writer: Writer, level: Int, reference: ReferenceFunction) = basicTrace(writer, level, description)
 	def nextPossiblePatterns = List(this)
 }
-private[frostbridge] trait PIValuePattern[Generated] extends ProcessingInstructionPattern[Generated]
+abstract class PIValuePattern[Generated] extends ProcessingInstructionPattern[Generated]
 {
 	def targetAllowed(target: String): Boolean
 	def targetDescription: String
@@ -170,32 +147,13 @@ private[frostbridge] trait PIValuePattern[Generated] extends ProcessingInstructi
 	}
 	def description = "processing instruction {target='" + targetDescription + "', data='" + data.dataDescription + "'}"
 }
-private final case class BasicPIValuePattern[Generated](target: String, data: ValueParser[Generated])
+case class BasicPIValuePattern[Generated](target: String, data: ValueParser[Generated])
 	extends PIValuePattern[Generated]
 {
 	assume(target != null, "Processing instruction target cannot be null")
 	assume(!target.isEmpty, "Processing instruction target cannot be empty")
 	
-	lazy val hash = List(getClass, target, data).hashCode
-	
 	def getTarget(g: Generated) = Some(target)
 	def targetAllowed(t: String) = target == t
 	def targetDescription = target
-}
-private final case class AdvancedPIValuePattern[Generated]
-	(targetAllowedA: String => Boolean, targetDescription: String, data: ValueParser[Generated],
-	getTargetA: Generated => Option[String]) extends PIValuePattern[Generated]
-{
-	lazy val hash = List(getClass, targetAllowedA, targetDescription, data, getTargetA).hashCode
-	def targetAllowed(target: String) = targetAllowedA(target)
-	def getTarget(g: Generated) = getTargetA(g)
-}
-private final case class GeneralProcessingInstructionPattern[Generated]
-	(description: String,
-	generateA: in.ProcessingInstruction => Option[Generated],
-	getTargetAndValueA: Generated => Option[out.ProcessingInstruction]) extends ProcessingInstructionPattern[Generated]
-{
-	def generate(pi: in.ProcessingInstruction) = generateA(pi)
-	def getTargetAndValue(g: Generated) = getTargetAndValueA(g)
-	lazy val hash = List(getClass, description, generateA, getTargetAndValueA).hashCode
 }

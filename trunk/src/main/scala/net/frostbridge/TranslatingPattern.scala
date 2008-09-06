@@ -20,26 +20,86 @@ package net.frostbridge
 
 import java.io.Writer
 
-import PatternFactory._
-import PatternImpl.translateNotAllowed
+import PatternImpl.{checkAllowed, checkNonEmpty, translateNotAllowed}
 import Traceable.{basicTrace, ReferenceFunction}
 import util.TList
 
-
-trait Translator[Generated,Source] extends NotNull
+/** Represents a general transformation of the result of a pattern into another pattern.
+* (p: Pattern[S]) >>= (b: Binding[G, S])
+* processes the generated object of p and produces a new pattern to be matched
+* for the unmarshalling case.  For the marshalling case, it will do a reverse
+* processing.
+*
+* This general case is like a flatMap/bind.  The class to implement
+* is Binding, which strips the generated pattern of top level AttributePatterns.*/
+sealed trait Transformation[Generated,Source] extends NotNull
+{
+	def bind(in: Source): Pattern[Generated]
+	def unprocess(g: Generated): Option[Source]
+}
+/** This case of Transformation is like a flatMap/bind with the restriction
+* that the generated pattern cannot contain AttributePatterns that are not
+* a descendent of an ElementPattern.
+*
+* This constraint is necessary for consistent behavior because attributes are unordered.*/
+trait Binding[Generated,Source] extends Transformation[Generated,Source]
+{
+	/* Generates a new pattern to match from the given matched value. 
+	* Any AttributePatterns that are not a descendent of an ElementPattern will be stripped
+	* when called by bind.
+	* 
+	* This is necessary for consistent unmarshalling behavior because attributes are unordered.*/
+	def process(in: Source): Pattern[Generated]
+	
+	/** Generates a new pattern to match from the given matched value by calling process
+	* and then deriving the generated pattern against a virtual Close node to eliminate
+	* all AttributePatterns that are not a descendant of an ElementPattern.
+	*
+	* This constraint is necessary for consistent behavior because attributes are unordered.*/
+	final def bind(in: Source): Pattern[Generated] = process(in).derive(virtualClose)
+	
+	private def virtualClose: in.Close = 
+		new in.VirtualClose("virtual node",
+			"Virtual node to remove top-level attributes from pattern generated in Binding.process.")
+}
+/** This special case of Transformation is like a map operation.  It translates the
+* generated object of a Pattern during unmarshalling into another object.*/
+abstract class Translator[Generated,Source] extends Transformation[Generated,Source]
 {
 	def process(s: Source): Generated
-	def unprocess(g: Generated): Option[Source]
+	final def bind(s: Source): Pattern[Generated] = EmptyPattern(process(s))
+}
+/** This special case of Transformation is like a filter operation.  It translates
+* the generated object of a Pattern during unmarshalling into another object.*/
+abstract class Filter[G] extends Transformation[G, G]
+{
+	def allowed(in: G): Boolean
+	
+	final def process(in: G) =
+		if(allowed(in))
+			EmptyPattern(in)
+		else
+			NotAllowedPattern
+		
+	def unprocess(g: G): Option[G] =
+		if(allowed(g))
+			Some(g)
+		else
+			None
 }
 /**
 * A pattern that delegates to another pattern and processes that pattern's generated result.
+* The definition of that processing is in Binding, which can behave 
 */
-private trait TranslatingPattern[Generated, Source] extends UnmatchedPattern[Generated] with MarshalErrorTranslator[Generated]
-{	
+private abstract class TranslatingPattern[Generated, Source]
+	extends UnmatchedPattern[Generated] with MarshalErrorTranslator[Generated]
+{
 	val delegate: Pattern[Source]
 	assume(delegate != this)
+	checkNonEmpty(delegate)
+	checkAllowed(delegate)
 	
-	def translator: Translator[Generated, Source]
+	def binding: Transformation[Generated, Source]
 	
 	def description = delegate.description
 	final def nextPossiblePatterns = delegate.nextPossiblePatterns
@@ -48,38 +108,19 @@ private trait TranslatingPattern[Generated, Source] extends UnmatchedPattern[Gen
 	def marshal(g: Generated, reverseXML: TList[out.Node]) =
 		translateMarshalError(g)
 		{
-			translator.unprocess(g) match
+			binding.unprocess(g) match
 			{
 				case Some(source) => delegate.marshal(source, reverseXML)
 				case None => Left(RootMarshalException(g, this))
 			}
 		}
-	final def derive(node: in.Node) = translate(delegate.derive(node), translator)
-	lazy val matchEmpty = delegate.matchEmpty.map(translator.process)
-}
-
-private[frostbridge] trait TranslatePatternFactory
-{
-	final def translate[Generated, Source]
-		(pattern: Pattern[Source], translator: Translator[Generated, Source]): Pattern[Generated] =
-	{
-		pattern.ifValid
-		{
-			pattern.matched match
-			{
-				case Some(value) => emptyPattern(translator.process(value))
-				case None => BasicTranslatingPattern(pattern, translator)
-			}
-		}
-	}
+	final def derive(node: in.Node) = delegate.derive(node) >>= binding
+	lazy val matchEmpty = delegate.matchEmpty.flatMap(m => binding.bind(m).matchEmpty)
 }
 
 /**
 * A simple implementation of TranslatingPattern.
 */
-private[frostbridge] final case class BasicTranslatingPattern[Generated, Source]
-	(delegate: Pattern[Source], translator: Translator[Generated,Source])
+private[frostbridge] final class BasicTranslatingPattern[Generated, Source]
+	(val delegate: Pattern[Source], val binding: Transformation[Generated,Source])
 	extends TranslatingPattern[Generated,Source]
-{
-	lazy val hash = List(getClass, delegate, translator).hashCode
-}

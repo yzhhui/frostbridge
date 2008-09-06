@@ -375,6 +375,15 @@ private final class StAXStream(reader: XMLStreamReader2, config: StreamConfigura
 	}
 }
 
+/** Used to transform AttributePattern into NotAllowed pattern, so there is no location
+* and the name can be arbitrary. */
+private[frostbridge] class VirtualClose(name: String, val description: String) extends in.Close
+{
+	def toXMLLike = description
+	def getLocation = com.ctc.wstx.io.WstxInputLocation.getEmptyLocation
+	def elementName = QName("", name)
+}
+
 /** Configures the XMLStream to ignore certain XML nodes.  If ignoreWhitespaceOnly is true, text content that is
 * entirely whitespace will be ignored.*/
 final case class StreamConfiguration(ignoreProcessingInstructions: Boolean, ignoreComments: Boolean, ignoreWhitespaceOnly: Boolean)

@@ -56,17 +56,6 @@ private sealed trait BinaryCompoundPattern[A,B,C] extends UnmatchedPattern[C]
 	def pattern1: Pattern[A]
 	def pattern2: Pattern[B]
 	def separator: String
-	
-	final lazy val hash = ((getClass.hashCode * 31) + pattern1.hashCode) * 31 + pattern2.hashCode
-	final override def equals(o: Any) =
-	{
-		o match
-		{
-			case a: BinaryCompoundPattern[_,_,_] =>
-				(a eq this) || (getClass == a.getClass && (pattern1 eq a.pattern1) && (pattern2 eq a.pattern2))
-			case _ => false
-		}
-	}
 }
 trait CompoundPatternFactory
 {
@@ -89,10 +78,10 @@ trait CompoundPatternFactory
 			if(p2.valid)
 				new HeterogeneousChoice(p1, p2)
 			else
-				translate(p1, HeterogeneousLeft[A,B])
+				p1 >>= HeterogeneousLeft[A,B]
 		}
 		else
-			translate(p2, HeterogeneousRight[A,B])
+			p2 >>= HeterogeneousRight[A,B]
 	}
 	
 	final def unorderedSequence[A, B](p1: Pattern[A], p2: Pattern[B]) =
@@ -109,13 +98,13 @@ trait CompoundPatternFactory
 					case Some(value1) =>
 						p2.matched match
 						{
-							case Some(value2) => emptyPattern( (value1, value2) )
-							case None => translate(p2, RequiredRight(value1))
+							case Some(value2) => EmptyPattern( (value1, value2) )
+							case None => (p2 >>= RequiredRight(value1))
 						}
 					case None =>
 						p2.matched match
 						{
-							case Some(value2) => translate(p1, RequiredLeft(value2))
+							case Some(value2) => (p1 >>= RequiredLeft(value2))
 							case None => constructor(p1, p2)
 						}
 				}
@@ -221,7 +210,7 @@ private final class OrderedSequence[A,B](val pattern1: Pattern[A], val pattern2:
 				pattern1.matchEmpty match
 				{
 					//pattern2 -> pattern2.derive(node) 12July2008
-					case Some(value) => derived | (emptyPattern(value) :+: pattern2.derive(node))
+					case Some(value) => derived | (EmptyPattern(value) :+: pattern2.derive(node))
 					case None => derived
 				}
 			}
@@ -263,9 +252,9 @@ private final class UnorderedSequence[A,B](val pattern1: Pattern[A], val pattern
 			case _: in.Close =>
 				pattern1.derive(node) +++ pattern2.derive(node)
 			case attribute: in.Attribute =>
-				(pattern1.derive(node) +++ pattern2) | translate(pattern2.derive(node) +++ pattern1, SwapTranslator[B,A])
+				(pattern1.derive(node) +++ pattern2) | ((pattern2.derive(node) +++ pattern1) >>= SwapTranslator[B,A])
 			case _ =>
-				(pattern1.derive(node) :+: pattern2) | translate(pattern2.derive(node) :+: pattern1, SwapTranslator[B,A])
+				(pattern1.derive(node) :+: pattern2) | ((pattern2.derive(node) :+: pattern1) >>= SwapTranslator[B,A])
 		}
 	}
 	
@@ -297,13 +286,9 @@ private final case class RequiredRight[A,B](a: A) extends Translator[(A,B), B]
 {
 	def process(b: B) = (a, b)
 	def unprocess(g: (A, B)) = Some(g._2)
-	override def hashCode = hash
-	lazy val hash = List(getClass, a).hashCode
 }
 private final case class RequiredLeft[A,B](b: B) extends Translator[(A,B), A]
 {
 	def process(a: A) = (a, b)
 	def unprocess(g: (A, B)) = Some(g._1)
-	override def hashCode = hash
-	lazy val hash = List(getClass, b).hashCode
 }
