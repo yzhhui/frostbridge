@@ -96,7 +96,7 @@ trait Traceable extends NotNull
 */
 trait ReferencedTraceable extends Traceable
 {
-	def name: String
+	def label: String
 	
 	private[frostbridge] override def embeddedTrace(writer: Writer, level: Int, referenceFunction: ReferenceFunction)
 	{
@@ -145,12 +145,12 @@ object Traceable
 	{
 		def validReferencedTraceable(r: ReferencedTraceable) = 
 		{
-			if(r.name == null)
+			if(r.label == null)
 				false
 			else
 			{
 				val boundName = referencedPatterns.getOrElse(r, null)
-				boundName == null || boundName == r.name
+				boundName == null || boundName == r.label
 			}
 		}
 		
@@ -161,7 +161,7 @@ object Traceable
 			{
 				val mappedName = traceable match
 				{
-					case r: ReferencedTraceable if validReferencedTraceable(r) => r.name
+					case r: ReferencedTraceable if validReferencedTraceable(r) => r.label
 					case _ => "Pattern" + (referencedPatterns.size + 1)
 				}
 				referencedPatterns += ((traceable, mappedName))

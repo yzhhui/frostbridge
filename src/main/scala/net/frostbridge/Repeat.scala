@@ -51,21 +51,6 @@ private final class Repeat[Generated]
 	
 	def separator = ":+:"
 	
-	lazy val hash = List(getClass, partial, repeated, accumulatedReverse, min, max).hashCode
-	override def equals(other: Any) =
-	{
-		other match
-		{
-			case r: Repeat[_] => (this eq r) ||
-			{
-				(accumulatedReverse == r.accumulatedReverse) && min == r.min && max == r.max &&
-				(repeated eq r.repeated) && partial.isDefined == r.partial.isDefined &&
-				(!partial.isDefined || (partial.get eq r.partial.get))
-			}
-			case _ => false
-		}
-	}
-	
 	def derive(node: in.Node) =
 	{
 		partial match
@@ -267,7 +252,7 @@ trait RepeatPatternFactory
 			{
 				repeated.matched match
 				{
-					case Some(value) => emptyPattern(TList(value))
+					case Some(value) => EmptyPattern(TList(value))
 					case None => new Repeat(partial, repeated, accumulatedReverse, min, max)
 				}
 			}
@@ -287,16 +272,16 @@ trait RepeatPatternFactory
 				}
 			}
 			case None =>
-				checkRepeated(emptyPattern(TList.empty))
+				checkRepeated(EmptyPattern(TList.empty))
 		}
 	}
 	
 	private[frostbridge] def translateLast[Generated]
 		(pattern: Pattern[Generated], accumulatedReverse: TList[Generated]) =
-			translate(pattern, TranslateLast[Generated](accumulatedReverse))
+			pattern >>= TranslateLast[Generated](accumulatedReverse)
 			
 	final def optional[G](pattern: Pattern[G]): Pattern[Option[G]] =
-		emptyPattern[Option[G]](None) | translate(pattern, TranslateOptional[G])
+		(pattern >>= TranslateOptional[G]) | EmptyPattern[Option[G]](None)
 }
 
 private final case class TranslateOptional[Generated] extends Translator[Option[Generated], Generated]
@@ -309,16 +294,6 @@ private final case class TranslateLast[Generated](accumulatedReverse: TList[Gene
 {
 	def unprocess(l: Seq[Generated]) = l.firstOption
 	def process(g: Generated) = (g :: accumulatedReverse).reverse
-	override def hashCode = hash
-	lazy val hash = List(getClass, accumulatedReverse).hashCode
-	override def equals(o: Any) =
-	{
-		o match
-		{
-			case TranslateLast(otherAccumulatedReverse) => accumulatedReverse == otherAccumulatedReverse
-			case _ => false
-		}
-	}
 }
 
 sealed trait UpperBound extends NotNull

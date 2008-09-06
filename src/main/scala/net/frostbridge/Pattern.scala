@@ -51,10 +51,6 @@ sealed trait Pattern[Generated] extends Traceable with NotNull
 	* If the node does not match, NotAllowedPattern is returned.
 	*/
 	def derive(node: in.Node): Pattern[Generated]
-		
-	final override def hashCode = hash
-	
-	private[frostbridge] val hash: Int
 	
 	/**
 	* Returns None if this value does not match the empty sequence, otherwise
@@ -69,9 +65,7 @@ sealed trait Pattern[Generated] extends Traceable with NotNull
 	*/
 	def matched: Option[Generated]
 	
-	/**
-	* True if and only if this pattern is valid (that is, it is not an error)
-	*/
+	/** True if and only if this pattern is valid (that is, it is not an error) */
 	def valid: Boolean = true
 	
 	/**
@@ -95,24 +89,16 @@ sealed trait Pattern[Generated] extends Traceable with NotNull
 
 	import PatternFactory._
 	
-	/**
-	* Produces a pattern that matches this pattern one or more times.
-	*/
+	/** Produces a pattern that matches this pattern one or more times. */
 	def + : Pattern[Seq[Generated]] = repeat(this, 1, Infinite)
 	
-	/**
-	* Produces a pattern that matches this pattern zero or more times.
-	*/
+	/** Produces a pattern that matches this pattern zero or more times. */
 	def * : Pattern[Seq[Generated]] = repeat(this, 0, Infinite)
 	
-	/**
-	* Produces a pattern that matches this pattern once or not at all.
-	*/
+	/** Produces a pattern that matches this pattern once or not at all. */
 	def ? : Pattern[Option[Generated]] = optional(this)
 	
-	/**
-	* Produces a pattern that matches this pattern at least min times and at most max times.
-	*/
+	/** Produces a pattern that matches this pattern at least min times and at most max times. */
 	def apply(min: Int, max: UpperBound): Pattern[Seq[Generated]] = repeat(this, min, max)
 	
 	/**
@@ -121,6 +107,7 @@ sealed trait Pattern[Generated] extends Traceable with NotNull
 	*/
 	def :+: [GeneratedOther](firstPattern: Pattern[GeneratedOther]): Pattern[(GeneratedOther, Generated)] =
 		orderedSequence(firstPattern, this)
+		
 	/**
 	* Produces a pattern that matches this pattern and then secondPattern or secondPattern and then
 	* this pattern.  Attributes are matched unordered.  Note that this is left associative.
@@ -135,38 +122,29 @@ sealed trait Pattern[Generated] extends Traceable with NotNull
 	def |+| [GeneratedOther](otherPattern: Pattern[GeneratedOther]): Pattern[Either[Generated,GeneratedOther]] =
 		heterogeneousChoice(this, otherPattern)
 		
-	/**
-	* Produces a pattern that matches otherPattern or this pattern.
-	*/
+	/** Produces a pattern that matches otherPattern or this pattern. */
 	def | (otherPattern: Pattern[Generated]): Pattern[Generated] =
 		homogeneousChoice(this, otherPattern)
+		
+	/** Transforms the result of this pattern in a manner similar to map, filter, or flatMap. */
+	def >>=[NewGenerated](binding: Transformation[NewGenerated, Generated]): Pattern[NewGenerated] =
+		new BasicTranslatingPattern(this, binding)
 }
 
-trait PatternFactory extends ElementPatternFactory with EmptyPatternFactory with AttributePatternFactory
-	with ContentPatternFactory with CompoundPatternFactory with RepeatPatternFactory with TranslatePatternFactory
-object PatternFactory extends PatternFactory
+object PatternFactory extends AttributePatternFactory with CompoundPatternFactory
+	with RepeatPatternFactory
 
 
-private[frostbridge] trait EmptyPatternFactory
-{
-	def emptyPattern[Generated](value: Generated): Pattern[Generated] = new EmptyPattern[Generated](value)
-}
-
-/**
-* A pattern that is not completely matched yet.
-*/
+/** A pattern that is not completely matched yet. */
 private[frostbridge] trait UnmatchedPattern[Generated] extends Pattern[Generated]
 {
 	final def matched: Option[Generated] = None
 }
-/**
-* A pattern that represents a complete match.
-*/
-private final case class EmptyPattern[Generated](value: Generated) extends Pattern[Generated]
+/**  A pattern that represents a complete match. */
+final case class EmptyPattern[Generated](value: Generated) extends Pattern[Generated]
 {
 	import java.io.Writer
 	import Traceable.{basicTrace, ReferenceFunction}
-	// no need to memoize
 	def derive(node: in.Node) =
 	{
 		import PatternImpl.translateNotAllowed
@@ -176,7 +154,6 @@ private final case class EmptyPattern[Generated](value: Generated) extends Patte
 			case _ => NotAllowedPattern
 		}
 	}
-	lazy val hash = List(getClass, value).hashCode
 	
 	def matchEmpty = Some(value)
 	def matched = Some(value)
@@ -188,8 +165,9 @@ private final case class EmptyPattern[Generated](value: Generated) extends Patte
 			Left(RootMarshalException(g, this))
 	}
 	
+	override final def >>=[NewGenerated](binding: Transformation[NewGenerated, Generated]) = binding.bind(value)
+	
 	def description = "Matched<" + value + ">"
 	def nextPossiblePatterns = Nil
 	def trace(writer: Writer, level: Int, reference: ReferenceFunction) = basicTrace(writer, level, "()")
-	
 }

@@ -22,7 +22,7 @@ import java.io.Writer
 import util.TList
 import Traceable.{basicTrace, ReferenceFunction}
 
-// classes to implement Pattern.derive
+// classes to help implement Pattern
 
 
 trait MarshalInvalid[Generated] extends UnmatchedPattern[Generated]
@@ -48,16 +48,12 @@ trait MarshalErrorTranslator[Generated] extends UnmatchedPattern[Generated]
 * of a NotAllowedPattern is unimportant since it is never matched).
 */
 case object NotAllowedPattern extends NotAllowedPattern[Nothing]
-{
-	val hash = System.identityHashCode(this)
-}
 
 /**
 * A pattern that represents a match error.
 */
 sealed trait NotAllowedPattern[Generated] extends UnmatchedPattern[Generated] with MarshalInvalid[Generated]
 {
-	// no need to memoize
 	final def derive(node: in.Node) = this
 	
 	final def matchEmpty = None
@@ -68,6 +64,9 @@ sealed trait NotAllowedPattern[Generated] extends UnmatchedPattern[Generated] wi
 	final def description = error("Description is not valid for the Not Allowed pattern")
 	
 	final def trace(writer: Writer, level: Int, reference: ReferenceFunction) = basicTrace(writer, level, "not allowed")
+	
+	import PatternImpl.translateNotAllowed
+	override final def >>=[N](binding: Transformation[N, Generated]): Pattern[N] = this.asInstanceOf[NotAllowedPattern[N]]
 }
 
 private object PatternImpl
