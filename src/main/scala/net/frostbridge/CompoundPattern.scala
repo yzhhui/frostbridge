@@ -235,7 +235,7 @@ private final class OrderedSequence[A,B](val pattern1: Pattern[A], val pattern2:
 		}
 }
 
-private final case class SwapTranslator[A,B] extends Translator[(B,A), (A, B)]
+private final case class SwapMapping[A,B] extends Mapping[(B,A), (A, B)]
 {
 	def process(p: (A, B)) = p.swap
 	def unprocess(p: (B, A)) = Some(p.swap)
@@ -252,9 +252,9 @@ private final class UnorderedSequence[A,B](val pattern1: Pattern[A], val pattern
 			case _: in.Close =>
 				pattern1.derive(node) +++ pattern2.derive(node)
 			case attribute: in.Attribute =>
-				(pattern1.derive(node) +++ pattern2) | ((pattern2.derive(node) +++ pattern1) >>= SwapTranslator[B,A])
+				(pattern1.derive(node) +++ pattern2) | ((pattern2.derive(node) +++ pattern1) >>= SwapMapping[B,A])
 			case _ =>
-				(pattern1.derive(node) :+: pattern2) | ((pattern2.derive(node) :+: pattern1) >>= SwapTranslator[B,A])
+				(pattern1.derive(node) :+: pattern2) | ((pattern2.derive(node) :+: pattern1) >>= SwapMapping[B,A])
 		}
 	}
 	
@@ -271,23 +271,23 @@ private final class UnorderedSequence[A,B](val pattern1: Pattern[A], val pattern
 		}
 }
 // for when the right is invalid
-private final case class HeterogeneousLeft[A,B] extends Translator[Either[A, B], A]
+private final case class HeterogeneousLeft[A,B] extends Mapping[Either[A, B], A]
 {
 	def process(a: A) = Left(a)
 	def unprocess(e: Either[A,B]) = e.left.toOption
 }
 // for when the left is invalid
-private final case class HeterogeneousRight[A,B] extends Translator[Either[A, B], B]
+private final case class HeterogeneousRight[A,B] extends Mapping[Either[A, B], B]
 {
 	def process(b: B) = Right(b)
 	def unprocess(e: Either[A,B]) = e.right.toOption
 }
-private final case class RequiredRight[A,B](a: A) extends Translator[(A,B), B]
+private final case class RequiredRight[A,B](a: A) extends Mapping[(A,B), B]
 {
 	def process(b: B) = (a, b)
 	def unprocess(g: (A, B)) = Some(g._2)
 }
-private final case class RequiredLeft[A,B](b: B) extends Translator[(A,B), A]
+private final case class RequiredLeft[A,B](b: B) extends Mapping[(A,B), A]
 {
 	def process(a: A) = (a, b)
 	def unprocess(g: (A, B)) = Some(g._1)

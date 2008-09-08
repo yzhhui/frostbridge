@@ -47,7 +47,7 @@ sealed trait ContentPattern[Generated] extends UnmatchedPattern[Generated] with 
 /**
 * A pattern that matches text and generates a value using a ValueParser.
 */
-case class TextPattern[Generated](content: ValueParser[Generated]) extends ContentPattern[Generated]
+class TextPattern[Generated](val content: ValueParser[Generated]) extends ContentPattern[Generated]
 {
 	lazy val matchEmpty = content.generate("")
 	protected def nodeFromString(string: String) = out.Text(string)
@@ -75,7 +75,7 @@ case class TextPattern[Generated](content: ValueParser[Generated]) extends Conte
 /**
 * A pattern that matches a comment and generates a value from the comment content using a ValueParser.
 */
-case class CommentPattern[Generated](content: ValueParser[Generated]) extends ContentPattern[Generated]
+class CommentPattern[Generated](val content: ValueParser[Generated]) extends ContentPattern[Generated]
 {
 	def matchEmpty = None
 	def derive(node: in.Node) =
@@ -147,7 +147,7 @@ abstract class PIValuePattern[Generated] extends ProcessingInstructionPattern[Ge
 	}
 	def description = "processing instruction {target='" + targetDescription + "', data='" + data.dataDescription + "'}"
 }
-case class BasicPIValuePattern[Generated](target: String, data: ValueParser[Generated])
+class BasicPIValuePattern[Generated](val target: String, val data: ValueParser[Generated])
 	extends PIValuePattern[Generated]
 {
 	assume(target != null, "Processing instruction target cannot be null")

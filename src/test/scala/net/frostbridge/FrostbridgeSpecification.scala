@@ -26,8 +26,8 @@ object FrostbridgeSpecification extends Properties("Frostbridge")
 	include(PatternSpecification)
 	include(util.TruncateSpecification)
 	include(util.TListSpecification)
-	import xml.ArbitraryXML
-	specify("XML Test", forAll(ArbitraryXML.defaultXML)((x: String) => true ))
+/*	import xml.ArbitraryXML
+	specify("XML Test", forAll(ArbitraryXML.defaultXML)((x: String) => true ))*/
 }
 
 object TestFromMaven

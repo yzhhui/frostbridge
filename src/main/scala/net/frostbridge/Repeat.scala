@@ -227,6 +227,7 @@ private final class Repeat[Generated]
 	}
 }
 
+/** Repeats a pattern or makes a pattern optional. */
 trait RepeatPatternFactory
 {
 	final def repeat[G](repeated: Pattern[G], min: Int, max: UpperBound): Pattern[Seq[G]] =
@@ -283,37 +284,48 @@ trait RepeatPatternFactory
 	final def optional[G](pattern: Pattern[G]): Pattern[Option[G]] =
 		(pattern >>= TranslateOptional[G]) | EmptyPattern[Option[G]](None)
 }
-
-private final case class TranslateOptional[Generated] extends Translator[Option[Generated], Generated]
+/** A mapping that wraps a generated object in Some. */
+private final case class TranslateOptional[Generated] extends Mapping[Option[Generated], Generated]
 {
-	def unprocess(s: Option[Generated]) = s
 	def process(g: Generated) = Some(g)
+	def unprocess(s: Option[Generated]) = s
 }
+/** A mapping that prepends a generated object to a list and reverses the prepended list. */
 private final case class TranslateLast[Generated](accumulatedReverse: TList[Generated])
-	extends Translator[Seq[Generated],Generated]
+	extends Mapping[Seq[Generated],Generated]
 {
-	def unprocess(l: Seq[Generated]) = l.firstOption
 	def process(g: Generated) = (g :: accumulatedReverse).reverse
+	def unprocess(l: Seq[Generated]) = l.firstOption
 }
 
+/** Represents the maximum number of times a pattern can be matched in a repeat.*/
 sealed trait UpperBound extends NotNull
 {
+	/** True if and only if the given value meets this bound.*/
 	def >=(min: Int): Boolean
+	/** True if and only if this bound is one.*/
 	def isOne: Boolean
+	/** Returns the bound that is one less than this bound if this is finite.
+	* Otherwise, returns Infinite.*/
 	def decrement: UpperBound
+	/** True if and only if this is unbounded.*/
 	def isInfinite: Boolean
 }
+/** Represents unbounded. */
 case object Infinite extends UpperBound
 {
+	/** All finite numbers meet this bound. */
 	def >=(min: Int) = true
 	def isOne = false
 	def decrement = this
 	def isInfinite = true
 	override def toString = "Infinity"
 }
+/** Represents a finite upper bound. The maximum allowed value is 'value', inclusive.
+*  It must positive. */
 final case class Finite(value: Int) extends UpperBound
 {
-	assume(value > 0, "Maximum occurences must be greater than zero")
+	assume(value > 0, "Maximum occurences must be positive.")
 	
 	def >=(min: Int) = value >= min
 	def isOne = value == 1
