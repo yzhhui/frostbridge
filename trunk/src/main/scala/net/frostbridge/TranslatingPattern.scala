@@ -62,9 +62,9 @@ trait Binding[Generated,Source] extends Transformation[Generated,Source]
 		new in.VirtualClose("virtual node",
 			"Virtual node to remove top-level attributes from pattern generated in Binding.process.")
 }
-/** This special case of Transformation is like a map operation.  It translates the
+/** This special case of Transformation is like a map operation.  It maps the
 * generated object of a Pattern during unmarshalling into another object.*/
-abstract class Translator[Generated,Source] extends Transformation[Generated,Source]
+abstract class Mapping[Generated,Source] extends Transformation[Generated,Source]
 {
 	def process(s: Source): Generated
 	final def bind(s: Source): Pattern[Generated] = EmptyPattern(process(s))

@@ -18,6 +18,12 @@
 */
 package net.frostbridge
 
+/** Represents a qualified name as defined in the XML Namespaces standard. The
+* two methods of creating a QName are:
+* QName(uri, localPart)
+* or
+* uri :: localPart (with the implicit in Implicits or QName in scope)
+*/
 sealed trait QName extends NotNull
 {
 	def namespaceURI: String
@@ -35,10 +41,8 @@ private[frostbridge] final class QNameImpl(val namespaceURI: String, val localPa
 	
 	def ::(namespaceURI: String) =
 	{
-		if(this.namespaceURI.isEmpty)
-			new QNameImpl(util.Check(namespaceURI), localPart)
-		else
-			throw new IllegalArgumentException("Local name '" + localPart + "' already in namespace URI '" + this.namespaceURI + "' (attempted to apply '" + namespaceURI + "')")
+		require(this.namespaceURI.isEmpty, "Local name '" + localPart + "' already in namespace URI '" + this.namespaceURI + "' (attempted to apply '" + namespaceURI + "')")
+		new QNameImpl(util.Check(namespaceURI), localPart)
 	}
 
 	def description =

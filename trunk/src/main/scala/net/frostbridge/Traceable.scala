@@ -20,9 +20,7 @@ package net.frostbridge
 
 import Traceable._
 
-import scala.collection.jcl.SortedMap
-import scala.collection.mutable.Map
-
+import scala.collection.jcl.{IdentityHashMap, Map, TreeMap}
 import java.io.Writer
 
 /** An object that can write a representation of itself to a Writer. */
@@ -38,11 +36,9 @@ trait Traceable extends NotNull
 	* as the top level. */
 	def startTrace(writer: Writer)
 	{
-		import scala.collection.mutable.HashMap
-		import scala.collection.jcl.TreeMap
 		
-		val newPatterns: SortedMap[String, Traceable] = new TreeMap[String, Traceable]
-		val referencedPatterns: Map[Traceable, String] = new HashMap[Traceable, String]
+		val newPatterns = new TreeMap[String, Traceable]
+		val referencedPatterns = new IdentityHashMap[Traceable, String]
 		val referencePatternFunction = referencePattern(referencedPatterns, newPatterns, _: Traceable)
 		
 		val name = referencePatternFunction(this)
@@ -91,11 +87,12 @@ trait Traceable extends NotNull
 *   anyURL
 * }
 *
-* Here, location is referenced by name in the trace of element url and expanded after url is completed.
+* Here, location is referenced by label in the trace of element url and expanded after url is completed.
 * This allows for a more readable trace and for traces of cyclic objects.
 */
 trait ReferencedTraceable extends Traceable
 {
+	/** The label used to reference this Traceable when it is embedded in another Traceable. */
 	def label: String
 	
 	private[frostbridge] override def embeddedTrace(writer: Writer, level: Int, referenceFunction: ReferenceFunction)
@@ -111,12 +108,14 @@ trait ReferencedTraceable extends Traceable
 */
 object Traceable
 {
+	/** Traces the given pattern to standard output.*/
 	def trace(pattern: Traceable)
 	{
 		val writer = new java.io.OutputStreamWriter(System.out)
 		pattern.startTrace(writer)
 		writer.flush
 	}
+	/** Traces the given pattern to a String.*/
 	def traceToString(pattern: Traceable): String =
 	{
 		val writer = new java.io.StringWriter

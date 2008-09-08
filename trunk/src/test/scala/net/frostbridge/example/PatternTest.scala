@@ -23,19 +23,19 @@ import net.frostbridge._
 import java.net.URL
 import java.io.{File, OutputStreamWriter, StringWriter}
 
+/** This class provides basic code for evaluating a pattern.  It unmarshals
+* a document according to the pattern provided in its constructor and then
+* marshals the document to standard output or to an in-memory buffer that
+* is discarded after marshalling.*/
 class PatternTest[Generated](val pattern: Pattern[Generated])
 {
-	def generated(g: Generated, echoResult: Boolean): Unit =
-	{
-		if(echoResult)
-		{
-			println()
-			println(g.toString)
-			println('\n')
-		}
-	}
-	
+	/** Calls 'test', using the source document in the File for the given 'filename'
+	*  and the default value of true for 'echoResult'.
+	* @see test */
 	def apply(filename: String): Unit = apply(filename, true)
+	/** Calls 'test', using the source document in the File for the given 'filename'
+	*  and the given value for 'echoResult'.
+	* @see test */
 	def apply(filename: String, echoResult: Boolean): Unit =
 	{
 		val file = new File(filename)
@@ -44,9 +44,21 @@ class PatternTest[Generated](val pattern: Pattern[Generated])
 		else
 			println("File does not exist.")
 	}
+	/** Calls 'test', using the source document at the given URL and the default
+	* value of true for 'echoResult'.
+	* @see test */
 	def apply(url: URL): Unit = apply(url, true)
+	/** Calls 'test', using the source document at the given URL and the given
+	* value of 'echoResult'.
+	* @see test */
 	def apply(url: URL, echoResult: Boolean): Unit = test(in.StAXStream(url), echoResult)
 	
+	/** Unmarshals the document provided by 'source' to an object, printing the
+	* unmarshal execution time and, if 'echoResult' is true, the toString representation
+	* of the object.
+	* Then, it marshals the object to standard output if 'echoResult' is true, otherwise
+	* it marshals the object to an in-memory buffer that is discarded after marshalling.
+	* The marshal execution time is then printed.*/
 	def test(source: in.XMLStream, echoResult: Boolean)
 	{
 		val unmarshalStartTime = System.currentTimeMillis
@@ -73,6 +85,16 @@ class PatternTest[Generated](val pattern: Pattern[Generated])
 				}
 			}
 			case Left(e) => println(e.toString)
+		}
+	}
+	
+	def generated(g: Generated, echoResult: Boolean): Unit =
+	{
+		if(echoResult)
+		{
+			println()
+			println(g.toString)
+			println('\n')
 		}
 	}
 }

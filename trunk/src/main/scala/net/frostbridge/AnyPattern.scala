@@ -32,17 +32,15 @@ class IgnoreAnyInNameClass(nameClass: NameClass)
 		}
 		
 	val anyElement: Pattern[Unit] =
-		new GeneralElementPattern[Unit, Unit](nameClass, anyPatterns)
+		new GeneralElementPattern[Unit, Unit](nameClass, anyPatterns) with UnmarshalOnly[Unit]
 		{
 			def generate(q: QName, u: Unit) = ()
-			def marshalTranslate(q: QName, u: Unit) = None
-			def generateName(u: Unit) = None
 		}
 	
 	val anyAttribute: Pattern[Unit] =
 		new GeneralAttributePattern(nameClass, anyValue) { def generateName(u: Unit) = None }
-	val anyText: Pattern[Unit] = TextPattern(anyValue)
-	val anyComment: Pattern[Unit] = CommentPattern(anyValue)
+	val anyText: Pattern[Unit] = text(anyValue)
+	val anyComment: Pattern[Unit] = comment(anyValue)
 	val anyProcessingInstruction: Pattern[Unit] =
 		new ProcessingInstructionPattern[Unit]
 		{
@@ -52,9 +50,9 @@ class IgnoreAnyInNameClass(nameClass: NameClass)
 		}
 	
 	val any: Pattern[Unit] = anyElement | anyAttribute | anyText | anyComment | anyProcessingInstruction
-	val anyPatterns: Pattern[Unit] = (any*) >>= UnitTranslator
+	val anyPatterns: Pattern[Unit] = (any*) >>= UnitMapping
 	
-	private case object UnitTranslator extends Translator[Unit, Seq[Unit]]
+	private case object UnitMapping extends Mapping[Unit, Seq[Unit]]
 	{
 		def process(u: Seq[Unit]) = ()
 		def unprocess(u: Unit) = None
@@ -64,13 +62,13 @@ class IgnoreAnyInNamespace(ns: String) extends IgnoreAnyInNameClass(NsName(ns))
 object IgnoreAny extends IgnoreAnyInNameClass(AnyName)
 
 
-sealed abstract class AbstractPreserveAny(nameClass: NameClass)
+sealed abstract class AbstractPreserveAny(allowedNames: NameClass)
 {
 	import out._
 	protected def anyPatterns: Pattern[Seq[Node]]
 	
 	val anyElement: Pattern[Element] =
-		new GeneralElementPattern[Element, Seq[Node]](nameClass, anyPatterns)
+		new GeneralElementPattern[Element, Seq[Node]](allowedNames, anyPatterns)
 		{
 			def generate(actualName: QName, childValue: Seq[Node]) = Element(actualName, childValue)
 			def marshalTranslate(generatedName: QName, e: Element) = Some(e.content)
@@ -78,8 +76,10 @@ sealed abstract class AbstractPreserveAny(nameClass: NameClass)
 		}
 	
 	val anyAttribute: Pattern[Attribute] =
-		new AdvancedAttributePattern[Attribute](nameClass, "any")
+		new AttributePattern[Attribute]
 		{
+			def nameClass = allowedNames
+			def contentDescription = "any"
 			def generate(name: QName, value: String) = Some(Attribute(name, value))
 			def marshalImpl(a: Attribute) = Some(a)
 		}
@@ -92,7 +92,7 @@ sealed abstract class AbstractPreserveAny(nameClass: NameClass)
 			def marshalToString(text: Text) = Some(text.text)
 			def dataDescription = "any text"
 		}
-		TextPattern(textValue)
+		text(textValue)
 	}
 }
 class PreserveAnyInNameClass(nameClass: NameClass) extends AbstractPreserveAny(nameClass)
@@ -101,7 +101,7 @@ class PreserveAnyInNameClass(nameClass: NameClass) extends AbstractPreserveAny(n
 	val any: Pattern[Node] =
 	{
 		val mixed = anyElement |+| anyAttribute |+| anyText
-		val translator = new Translator[Node, mixed.GeneratedType]
+		val mapping = new Mapping[Node, mixed.GeneratedType]
 		{
 			def process(m: mixed.GeneratedType): Node =
 			{
@@ -117,7 +117,7 @@ class PreserveAnyInNameClass(nameClass: NameClass) extends AbstractPreserveAny(n
 					case _ => None
 				}
 		}
-		mixed >>= translator
+		mixed >>= mapping
 	}
 	
 	val anyPatterns: Pattern[Seq[Node]] = any*
@@ -138,7 +138,7 @@ class FullPreserveAnyInNameClass(nameClass: NameClass) extends AbstractPreserveA
 			def marshalToString(comment: Comment) = Some(comment.text)
 			def dataDescription = "any text"
 		}
-		CommentPattern(commentValue)
+		comment(commentValue)
 	}
 	val anyProcessingInstruction: Pattern[ProcessingInstruction] =
 		new ProcessingInstructionPattern[ProcessingInstruction]
@@ -151,7 +151,7 @@ class FullPreserveAnyInNameClass(nameClass: NameClass) extends AbstractPreserveA
 	val any: Pattern[Node] =
 	{
 		val mixed = anyElement |+| anyAttribute |+| anyText |+| anyComment |+| anyProcessingInstruction
-		val translator = new Translator[Node, mixed.GeneratedType]
+		val mapping = new Mapping[Node, mixed.GeneratedType]
 		{
 			def process(m: mixed.GeneratedType): Node =
 			{
@@ -168,7 +168,7 @@ class FullPreserveAnyInNameClass(nameClass: NameClass) extends AbstractPreserveA
 					case pi: ProcessingInstruction => Right(pi)
 				})
 		}
-		mixed >>= translator
+		mixed >>= mapping
 	}
 	
 	val anyPatterns: Pattern[Seq[Node]] = any*

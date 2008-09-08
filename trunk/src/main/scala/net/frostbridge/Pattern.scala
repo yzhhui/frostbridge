@@ -131,10 +131,6 @@ sealed trait Pattern[Generated] extends Traceable with NotNull
 		new BasicTranslatingPattern(this, binding)
 }
 
-object PatternFactory extends AttributePatternFactory with CompoundPatternFactory
-	with RepeatPatternFactory
-
-
 /** A pattern that is not completely matched yet. */
 private[frostbridge] trait UnmatchedPattern[Generated] extends Pattern[Generated]
 {

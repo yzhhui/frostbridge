@@ -97,14 +97,29 @@ sealed abstract class ElementPattern[Generated, ChildGenerated]
 		traceChildren(writer, level+1, reference)
 		basicTrace(writer, level, "}")
 	}
+	/** This traces the child pattern.  This method is required because childrenPattern
+	* can be a function of the matched element name. */
 	def traceChildren(writer: Writer, level: Int, reference: ReferenceFunction): Unit
 }
 
 
+abstract class DynamicElementPattern[Generated, ChildGenerated] extends ElementPattern[Generated, ChildGenerated]
+{
+	def childrenDescription: String
+	def traceChildren(writer: Writer, level: Int, reference: ReferenceFunction)
+	{
+		basicTrace(writer, level, childrenDescription)
+	}
+}
+
+/** A helper trait for element patterns that match elements with a single, specific name. */
 trait NamedElement[Generated, ChildGenerated] extends ElementPattern[Generated, ChildGenerated]
 {
+	/** The name of elements that this pattern matches. */
 	def name: QName
+	/** Produces an object given the object produced by this element pattern's children pattern. */
 	def generate(g: ChildGenerated): Generated
+	/** Translates the given object to the generated type of the children pattern. */
 	def marshalTranslate(g: Generated): Option[ChildGenerated]
 	
 	final def generateName(g: Generated) = Some(name)
@@ -117,7 +132,8 @@ private object EmptyElementPattern
 {
 	val empty = EmptyPattern(())
 }
-abstract class AbstractEmptyElementPattern[Generated] extends ElementPattern[Generated, Unit]
+/** A common base class for elements without any content. */
+sealed abstract class AbstractEmptyElementPattern[Generated] extends ElementPattern[Generated, Unit]
 {
 	final def childrenPattern(actualName: QName) = EmptyElementPattern.empty
 	final def marshalTranslate(generatedName: QName, g: Generated) = Some(g)
@@ -126,7 +142,8 @@ abstract class AbstractEmptyElementPattern[Generated] extends ElementPattern[Gen
 		EmptyElementPattern.empty.embeddedTrace(writer, level, reference)
 	}
 }
-case class NamedEmptyElementPattern[Generated](name: QName, value: Generated)
+/** An element without any content that matches elements with the name 'name'. */
+class NamedEmptyElementPattern[Generated](val name: QName, val value: Generated)
 	extends AbstractEmptyElementPattern[Generated]
 {
 	def nameClass = Name(name)
@@ -134,15 +151,36 @@ case class NamedEmptyElementPattern[Generated](name: QName, value: Generated)
 	def generate(matchedName: QName, u: Unit) = value
 }
 
+/** An element without any content that matches elements with names in the provided 'nameClass'.
+* 'generateName' must be implemented to provide the name that should be used when marshalling
+* an object.
+*/
 abstract class EmptyElementPattern[Generated](val nameClass: NameClass) extends AbstractEmptyElementPattern[Generated]
 {
 	def generate(matchedName: QName): Generated
 	final def generate(matchedName: QName, u: Unit): Generated = generate(matchedName)
 }
 
-
+/** A trait that can be mixed in to a pattern to always fail marshalling for that pattern.
+* This variant is for patterns that match a general NameClass.
+* @see NamedUnmarshalOnly */
+trait UnmarshalOnly[Generated]
+{
+	def marshalTranslate(name: QName, g: Generated) = None
+	def generateName(g: Generated) = None
+}
+/** A trait that can be mixed in to a pattern to always fail marshalling for that pattern. This
+* variant is for patterns that match a single name.
+* @see UnmarshalOnly */
+trait NamedUnmarshalOnly[Generated]
+{
+	def marshalTranslate(g: Generated) = None
+}
+/** This common base class is used for patterns that have a fixed childrenPattern independent
+* of the matched element name. */
 abstract class FixedContent[Generated, ChildGenerated] extends ElementPattern[Generated, ChildGenerated]
 {
+	/** The pattern for the element's children, independent of the matched name. */
 	def childrenPattern: Pattern[ChildGenerated]
 	final def childrenPattern(actualName: QName): Pattern[ChildGenerated] = childrenPattern
 	def traceChildren(writer: Writer, level: Int, reference: ReferenceFunction)
@@ -150,46 +188,44 @@ abstract class FixedContent[Generated, ChildGenerated] extends ElementPattern[Ge
 		childrenPattern.embeddedTrace(writer, level, reference)
 	}
 }
-abstract class NamedElementPattern[Generated, ChildGenerated](val name: QName, childrenPatternA: => Pattern[ChildGenerated])
+/** This pattern matches an element with the given 'name' and that has content that matches
+* 'childrenPatternA'.  'childrenPatternA' is lazily evaluated and so this pattern may be
+* used in a recursive pattern definition.
+*/
+abstract class NamedElementPattern[Generated, ChildGenerated]
+	(val name: QName, childrenPatternA: => Pattern[ChildGenerated])
 	extends FixedContent[Generated, ChildGenerated] with NamedElement[Generated, ChildGenerated]
 {
 	lazy val childrenPattern = childrenPatternA
 }
+/** This pattern matches an element with name in NameClass 'nameClass' and with content
+* that matches 'childrenPatternA'.  'childrenPatternA' is lazily evaluated and so this pattern may be
+* used in a recursive pattern definition. */
 abstract class GeneralElementPattern[Generated, ChildGenerated]
 	(val nameClass: NameClass, childrenPatternA: => Pattern[ChildGenerated])
 	extends FixedContent[Generated, ChildGenerated]
 {
 	lazy val childrenPattern = childrenPatternA
 }
-/*
-abstract class NamedRecursiveElementPattern[Generated, ChildGenerated]
-	(val name: QName, childrenPatternA: => Pattern[ChildGenerated])
-	extends ElementPattern[Generated, ChildGenerated] with NamedElement[Generated, ChildGenerated]
-{
-	lazy val childrenPattern = childrenPatternA
-}
 
-abstract class RecursiveElementPattern[Generated, ChildGenerated]
-	(val nameClass: NameClass, childrenPatternA: => Pattern[ChildGenerated])
-	extends ElementPattern[Generated, ChildGenerated]
-{
-	lazy val childrenPattern = childrenPatternA
-}*/
-
+/** A common base class for element patterns with a single text value as content. */
 sealed abstract class TextElementPattern[Generated] extends FixedContent[Generated, Generated]
 {
 	def textContent: ValueParser[Generated]
-	val childrenPattern = TextPattern(textContent)
+	val childrenPattern = new TextPattern(textContent)
 }
-case class TextElement[Generated](name: QName, textContent: ValueParser[Generated])
+/** This pattern matches an element with the given 'name' and with text content matched
+* by the given ValueParser. */
+class NamedTextElementPattern[Generated](val name: QName, val textContent: ValueParser[Generated])
 	extends TextElementPattern[Generated] with NamedElement[Generated, Generated]
 {
 	def generate(g: Generated) = g
 	def marshalTranslate(g: Generated) = Some(g)
 }
 
-abstract class GeneralTextElementPattern[Generated]
-	(val nameClass: NameClass, val textContent: ValueParser[Generated])
+/** This pattern matches an element with name in NameClass 'nameClass' and with text content matched
+* by ValueParser 'textContent'. */
+abstract class GeneralTextElementPattern[Generated](val nameClass: NameClass, val textContent: ValueParser[Generated])
 	extends TextElementPattern[Generated]
 {
 	def marshalTranslate(generatedName: QName, g: Generated) = Some(g)

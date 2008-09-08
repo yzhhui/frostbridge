@@ -18,8 +18,7 @@
 */
 package net.frostbridge.util
 
-/** A linked list that aims to implement methods in a tail-recursive fashion and cache the length
-* and hashCode of the list.*/
+/** A linked list that caches the length of the list.*/
 sealed abstract class TList[A] extends Seq[A] with NotNull
 {
 	/** Prepends value to this list. */
@@ -65,11 +64,11 @@ private final class Tail[T](val value: T, val next: Option[Tail[T]]) extends Not
 		}
 	}
 }
-/** Implements a non-empty TList.  The length and hash of the list are cached.
+/** Implements a non-empty TList.  The length of the list is cached.
 * This class will only exist as the head of a list.  When either prepend method
 * is called on this class, the new list that is returned uses a Tail in place of
 * this Head.*/
-private final class Head[A](val value: A, val next: Option[Tail[A]], val length: Int, val hash: Int) extends TList[A]
+private final class Head[A](val value: A, val next: Option[Tail[A]], val length: Int) extends TList[A]
 {
 	assume(length > 0)
 	
@@ -86,22 +85,16 @@ private final class Head[A](val value: A, val next: Option[Tail[A]], val length:
 	}
 	override def reverse: TList[A] = TList.reverse(next, TList(value))
 	def reverse_:::(prepend: TList[A]) = prepend.elements.foldLeft(this: TList[A])( (list: TList[A], value: A) => value :: list )
-	def ::(newValue: A): TList[A] = new Head(newValue, Some(new Tail(value, next)), length + 1, newHash(newValue, hash))
+	def ::(newValue: A): TList[A] = new Head(newValue, Some(new Tail(value, next)), length + 1)
 	
 	override def equals(a: Any): Boolean =
 	{
 		a match
 		{
 			// All that is strictly necessary is (this sameElements h).  The others are cheap shortcuts.
-			case h: Head[_] => (h eq this) || (h.hash == this.hash && h.length == this.length && (this sameElements h))
+			case h: Head[_] => (h eq this) || (h.length == this.length && (this sameElements h))
 			case _ => false
 		}
-	}
-	override def hashCode =
-	{
-		val hash1 = hash + (hash << 3)
-		val hash2 = hash1 ^ (hash1 >> 11)
-		hash2 + (hash2 << 15)
 	}
 	override def toString = mkString("TList(", ", ", ")")
 	def elements: Iterator[A] = new TListIterator[A](this)
@@ -132,7 +125,7 @@ object TList
 	/** The empty list.*/
 	def empty[T]: TList[T] = Empty.asInstanceOf[EmptyTList[T]]
 	/** Creates a list of length one consisting of the given value.*/
-	def apply[T](value: T): TList[T] = new Head(value, None, 1, newHash(value, 0))
+	def apply[T](value: T): TList[T] = new Head(value, None, 1)
 	
 	/** Creates a list containing the values between start and end (inclusive) in increasing order.
 	* start must be <= end.*/
@@ -163,7 +156,7 @@ object TList
 			make(n-1, value, value :: list)
 	}
 	
-	private[frostbridge] final def reverse[T](tail: Option[Tail[T]], reversed: TList[T]): TList[T] =
+	private[frostbridge] def reverse[T](tail: Option[Tail[T]], reversed: TList[T]): TList[T] =
 	{
 		if(tail.isDefined)
 		{
@@ -172,22 +165,5 @@ object TList
 		}
 		else
 			reversed
-	}
-	
-	// Bob Jenkins' One-at-a-Time Hash from http://burtleburtle.net/bob/hash/doobs.html
-	// (public domain)
-	final def newHash[T](newValue: T, oldHash: Int): Int = 
-	{
-		val newValueHash = newValue.hashCode
-		val newHash1 = iterateHash(newValueHash & 0xFF, oldHash)
-		val newHash2 = iterateHash((newValueHash >>> 8) & 0xFF, newHash1)
-		val newHash3 = iterateHash((newValueHash >>> 16) & 0xFF, newHash2)
-		iterateHash(newValueHash >>> 24, newHash3)
-	}
-	final def iterateHash(key: Int, previousHash: Int): Int =
-	{
-		val hash1 = previousHash + key
-		val hash2 = hash1 + (hash1 << 10)
-		hash2 ^ (hash2 >>> 6)
 	}
 }

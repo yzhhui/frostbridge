@@ -29,7 +29,7 @@ import java.io.Writer
 * A pattern that matches an attribute.  This pattern allows an attribute to be matched
 * by name and value.
 */
-sealed abstract class AttributePattern[Generated] extends UnmatchedPattern[Generated] with BasicMarshaller[Generated]
+abstract class AttributePattern[Generated] extends UnmatchedPattern[Generated] with BasicMarshaller[Generated]
 {
 	/**
 	* Describes the set of allowed names of an attribute matched by this pattern
@@ -78,15 +78,12 @@ sealed abstract class AttributePattern[Generated] extends UnmatchedPattern[Gener
 	protected def traceContent(writer: Writer) = writer.write(contentDescription)
 }
 
-abstract class AdvancedAttributePattern[Generated](val nameClass: NameClass, val contentDescription: String)
-	extends AttributePattern[Generated]
-
 /** An implementation of AttributePattern that uses a ValueParser
 * to determine the value to be matched.
 */
-sealed abstract class BasicAttributePattern[Generated] extends AttributePattern[Generated]
+abstract class GeneralAttributePattern[Generated]
+	(val nameClass: NameClass, val value: ValueParser[Generated]) extends AttributePattern[Generated]
 {
-	def value: ValueParser[Generated]
 	def generateName(g: Generated): Option[QName]
 	def contentDescription = value.dataDescription
 	
@@ -100,18 +97,8 @@ sealed abstract class BasicAttributePattern[Generated] extends AttributePattern[
 			out.Attribute(name, value)
 	}
 }
-case class SimpleAttributePattern[Generated](name: QName, value: ValueParser[Generated])
-	extends BasicAttributePattern[Generated]
+class NamedAttributePattern[Generated](name: QName, value: ValueParser[Generated])
+	extends GeneralAttributePattern[Generated](Name(name), value)
 {
-	def nameClass = Name(name)
-	def generateName(g: Generated) = Some(nameClass.name)
-}
-
-abstract class GeneralAttributePattern[Generated](val nameClass: NameClass, val value: ValueParser[Generated])
-	extends BasicAttributePattern[Generated]
-
-private[frostbridge] trait AttributePatternFactory
-{
-	def attribute[Generated](name: QName, value: ValueParser[Generated]): Pattern[Generated] =
-		SimpleAttributePattern[Generated](name, value)
+	def generateName(g: Generated) = Some(name)
 }

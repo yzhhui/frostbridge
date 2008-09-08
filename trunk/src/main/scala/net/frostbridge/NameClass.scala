@@ -39,6 +39,7 @@ case object AnyName extends NameClass
 {
 	def matches(qname: QName) = true
 	def description = "*"
+	def - (other: NameClass) = AnyNameExcept(other)
 }
 /** All names are allowed except for the ones that match 'except'.
 * 'except' may not be AnyName. */
@@ -59,6 +60,7 @@ final case class NsName(namespaceURI: String) extends NameClass
 	
 	def matches(qname: QName) = namespaceURI == qname.namespaceURI
 	def description = "{" + namespaceURI.toString + "}*"
+	def - (other: NameClass) = NsNameExcept(namespaceURI, other)
 }
 /** All names with namespace URI 'namespaceURI' except those that match
 * 'except' are allowed. 'except' may only be of type Name or a NameChoice

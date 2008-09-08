@@ -21,6 +21,7 @@ package net.frostbridge
 import out._
 import data._
 import org.scalacheck.{Arbitrary, Gen}
+import PatternFactory._
 
 case class FTestPattern(pattern: Pattern[_], testXML: Gen[FTestXML]) extends NotNull
 {
@@ -380,7 +381,7 @@ class PatternGen extends DefaultPatternFrequency
 					import PatternFactory._
 					name.name match
 					{
-						case Name(q) => TextElement(q, valueParser)
+						case Name(q) => textElement(q, valueParser)
 						case other =>
 							new GeneralTextElementPattern(other, valueParser)
 							{
@@ -401,7 +402,7 @@ class PatternGen extends DefaultPatternFrequency
 	{
 		for(value <- valueGen) yield
 		{
-			val pattern = TextPattern(value.value)
+			val pattern = text(value.value)
 			val xml =
 				for(testValue <- value.testContent) yield
 					FTestXML(Text(testValue.content) :: Nil, testValue.valid)
