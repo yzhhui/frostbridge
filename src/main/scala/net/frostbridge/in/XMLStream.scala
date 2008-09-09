@@ -108,7 +108,7 @@ sealed trait Comment extends Node
 
 /**
 * Common parent trait to nodes that occur within an element tag:
-* Open, Close, Attribute, and EndTag
+* Open, Close, Attribute, and EndTag.
 *
 * Adds access to the element name in addition to the defined Node methods.
 */

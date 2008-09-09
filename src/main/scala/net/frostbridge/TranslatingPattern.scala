@@ -75,7 +75,7 @@ abstract class Filter[G] extends Transformation[G, G]
 {
 	def allowed(in: G): Boolean
 	
-	final def process(in: G) =
+	final def process(in: G): Pattern[G] =
 		if(allowed(in))
 			EmptyPattern(in)
 		else
