@@ -11,8 +11,8 @@ The example assumes you have [http://www.scala-lang.org Scala] version 2.7.1 or 
 
 = Download =
 
-  * The Frostbridge [http://frostbridge.googlecode.com/files/frostbridge-0.1.jar core library]
-  * The [http://frostbridge.googlecode.com/files/frostbridge-sitemap-example-0.1.jar sitemap example]
+  * The Frostbridge [http://frostbridge.googlecode.com/files/frostbridge-0.2.jar core library]
+  * The [http://frostbridge.googlecode.com/files/frostbridge-tests-0.2.jar sitemap example]
   * The [http://woodstox.codehaus.org/3.2.6/wstx-lgpl-3.2.6.jar Woodstox parser] (the only runtime dependency for Frostbridge)
   * The sitemap example [http://code.google.com/p/frostbridge/source/browse/trunk/src/test/scala/net/frostbridge/example/SiteMap.scala source code] for reference and inline comments
   * Some sitemap XML documents to process.  For example:
@@ -24,7 +24,7 @@ The example assumes you have [http://www.scala-lang.org Scala] version 2.7.1 or 
 
 1. Put the jars on your classpath and run the scala interpreter (again, version 2.7.1 or later):
 {{{
-scala -cp frostbridge-0.1.jar:frostbridge-sitemap-example-0.1.jar:wstx-lgpl-3.2.6.jar
+scala -cp frostbridge-0.2.jar:frostbridge-sitemap-example-0.2.jar:wstx-lgpl-3.2.6.jar
  }}}
 
 
