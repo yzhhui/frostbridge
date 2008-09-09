@@ -1,0 +1,165 @@
+	
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>net.frostbridge</groupId>
+	<artifactId>frostbridge</artifactId>
+	<version>0.2.1</version>
+	<packaging>jar</packaging>
+	<name>Frostbridge</name>
+	<inceptionYear>2008</inceptionYear>
+	<url>http://frostbridge.net</url>
+	
+	<developers>
+		<developer>
+			<name>Mark Harrah</name>
+			<email>dmharrah@gmail.com</email>
+		</developer>
+	</developers>
+	<licenses>
+		<license>
+			<name>GNU Lesser General Public License (LGPL) version 2.1 or later</name>
+			<url>http://www.gnu.org/licenses/lgpl.html</url>
+		</license>
+	</licenses>
+	
+	<mailingLists>
+		<mailingList>
+			<name>Frostbridge Google Group</name>
+			<archive>http://groups.google.com/group/frostbridge</archive>
+			<post>http://groups.google.com/group/frostbridge</post>
+			<subscribe>http://groups.google.com/group/frostbridge/subscribe</subscribe>
+		</mailingList>
+	</mailingLists>
+	<scm>
+		<connection>scm:svn:http://frostbridge.googlecode.com/svn/trunk/</connection>
+		<developerConnection>scm:svn:https://frostbridge.googlecode.com/svn/trunk/</developerConnection>
+	</scm>
+	<issueManagement>
+		<system>google</system>
+		<url>http://code.google.com/p/frostbridge/issues/</url>
+	</issueManagement>
+	
+	<!-- These properties define the versions of components required.-->
+	<properties>
+		<scala.version>2.7.2-rc1</scala.version>
+		<woodstox.version>3.2.6</woodstox.version>
+		<scalacheck.version>1.4</scalacheck.version>
+		<vscaladoc.version>1.2-SNAPSHOT</vscaladoc.version>
+		<!-- Locally built version to fix scala:run dependency resolution -->
+		<scala.plugin.version>2.7.1-m</scala.plugin.version>
+		<vscaladoc.linkdefs>file://${basedir}/vscaladocs-packageLinkDefs.properties</vscaladoc.linkdefs>
+	</properties>
+	
+	<repositories>
+		<repository>
+			<id>scala-tools.org</id>
+			<name>Scala-Tools Maven2 Repository</name>
+			<url>http://scala-tools.org/repo-releases</url>
+		</repository>
+	</repositories>
+	<pluginRepositories>
+		<pluginRepository>
+			<id>scala-tools.org</id>
+			<name>Scala-Tools Maven2 Repository</name>
+			<url>http://scala-tools.org/repo-releases</url>
+		</pluginRepository>
+	</pluginRepositories>
+	
+	<dependencies>
+		<dependency>
+			<groupId>org.scala-lang</groupId>
+			<artifactId>scala-library</artifactId>
+			<version>${scala.version}</version>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.codehaus.woodstox</groupId>
+			<artifactId>wstx-lgpl</artifactId>
+			<version>${woodstox.version}</version>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.scalacheck</groupId>
+			<artifactId>scalacheck</artifactId>
+			<version>${scalacheck.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<!-- for scala:console -->
+		<dependency>
+			<groupId>org.scala-lang</groupId>
+			<artifactId>scala-compiler</artifactId>
+			<version>${scala.version}</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+		
+	<build>
+		<sourceDirectory>src/main/scala</sourceDirectory>
+		<testSourceDirectory>src/test/scala</testSourceDirectory>
+		<plugins>
+			<plugin>
+				<groupId>org.scala-tools</groupId>
+				<artifactId>maven-scala-plugin</artifactId>
+				<version>${scala.plugin.version}</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>compile</goal>
+							<goal>testCompile</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<!-- These are passed to scalac during compilation-->
+					<args>
+						<!--<arg>-optimise</arg>
+						<arg>-Xdisable-assertions</arg>
+						<arg>-Yclosure-elim</arg>
+						<arg>-explaintypes</arg>-->
+						<arg>-unchecked</arg>
+						<arg>-deprecation</arg>
+					</args>
+					<launcher>ScalaCheck.tests</launcher>
+					<launchers>
+						<launcher>
+							<id>ScalaCheck.tests</id>
+							<mainClass>net.frostbridge.TestFromMaven</mainClass>
+						</launcher>
+					</launchers>
+				</configuration>
+			</plugin>
+			<!-- This causes a jar containing the tests/examples to be generated -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>2.2</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>test-jar</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+	
+	<reporting>
+		<plugins>
+			<plugin>
+				<groupId>org.scala-tools</groupId>
+				<artifactId>maven-scala-plugin</artifactId>
+				<version>${scala.plugin.version}</version>
+				<configuration>
+					<!-- this declaration indicates vscaladoc should be used instead of scaladoc -->
+					<vscaladocVersion>${vscaladoc.version}</vscaladocVersion>
+					<jvmArgs>
+						<!-- This declares the file containing the location
+							  for the API documentation for third-party packages. -->
+						<jvmArg>-DpackageLinkDefs=${vscaladoc.linkdefs}</jvmArg>
+					</jvmArgs>
+				</configuration>
+			</plugin>
+		</plugins>
+	</reporting>
+</project>
