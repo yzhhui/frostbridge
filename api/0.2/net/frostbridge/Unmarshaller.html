@@ -1,0 +1,427 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+      <head>
+      
+      <title>Frostbridge 0.2-SNAPSHOT API : net.frostbridge.Unmarshaller</title>
+      <meta http-equiv="content-type" content="text/html; charset=UTF-8"></meta>
+      <meta content="scaladoc (0.1-SNAPSHOT)" name="generator"></meta>
+      <script type="text/javascript" src="./../../jquery-1.2.3.js"></script>
+    
+      
+      <link href="./../../content.css" type="text/css" rel="stylesheet"></link>
+      <script src="./../../content.js" language="javascript" id="content.js"></script>
+      <link href="./../../_highlighter/SyntaxHighlighter.css" type="text/css" rel="stylesheet"></link>
+      <script src="./../../_highlighter/shAll.js" language="javascript" id="shAll.js"></script>
+      
+    
+      </head>
+      
+      <div class="header"></div>
+      <!-- ========= START OF TOP NAVBAR ======= -->
+      <a name="navbar_top"><!-- --></a>
+      <table cellpadding="1" width="100%" class="NavBar" cellspacing="0" border="0">
+      <tr>
+        <td class="NavBarCell1">
+      <a href="./../../overview.html">OVERVIEW</a>&nbsp;|&nbsp;
+      <a href="./../../overview.html" title="net.frostbridge" >PACKAGE</a> | 
+      <a href="#Constructors">CONSTR</a>&nbsp;|&nbsp;
+      <a href="#Fields">FIELDS</a>&nbsp;|&nbsp;
+      <a href="#Methods">METHODS</a>
+    </td>
+        <td class="NavBarCell2">
+      <a href="./../../index.html" target="_top">FRAMES</a>
+      &nbsp;&nbsp;
+      <a href="Unmarshaller.html" target="_top">NO FRAMES</a>
+    </td>
+        <td class="NavBarCell3"><a href="#" title="show/hide inherited" class="btnInherited" onclick="toggleInherited()">INHERITED<input type="checkbox" class="filter_inherited_cb" checked="true"></input></a></td>
+      </tr>
+    </table>
+      <!-- ========= END OF TOP NAVBAR ========= -->
+      
+      <!-- ======== START OF CLASS DATA ======== -->
+      <h2>
+      <span style="font-size:80%">net.frostbridge.Unmarshaller</span>
+      <br></br>
+      class Unmarshaller
+      </h2>
+      <div id="intro">
+      <code class="signature">final class Unmarshaller[Generated, ResultType](pattern : <a href="./Pattern.html" title="net.frostbridge.Pattern" >Pattern</a>[<a href="./Unmarshaller.Generated.html" title="net.frostbridge.Unmarshaller.Generated" >Generated</a>], handler : <a href="./UnmarshalHandler.html" title="net.frostbridge.UnmarshalHandler" >UnmarshalHandler</a>[<a href="./Unmarshaller.Generated.html" title="net.frostbridge.Unmarshaller.Generated" >Generated</a>, <a href="./Unmarshaller.ResultType.html" title="net.frostbridge.Unmarshaller.ResultType" >ResultType</a>])</code>
+      <code class="signature">
+        <br></br>&nbsp;extends
+        <a href="http://www.scala-lang.org/docu/files/api/scala/NotNull.html" title="scala.NotNull" >NotNull</a> with <a href="http://www.scala-lang.org/docu/files/api/scala/ScalaObject.html" title="scala.ScalaObject" >ScalaObject</a>
+      </code>
+      <br></br>
+      <div class="apiComments">
+         This class is used to unmarshal an XML document according to a pattern.
+ The pattern model is similar to the RelaxNG model.  Notable differences are the ability
+ to specify the minimum and maximum times something can be repetitively matched (RelaxNG
+ provides 0-infinity, 0-1, 1-infinity) and forced determinism in certain cases (RelaxNG only
+ validates a document, so two alternatives can match and the document is valid.  When
+ binding, only one alternative can be bound.)
+
+        
+      </div>
+      <br></br>
+      Companion: <a href="./Unmarshaller$object.html" title="net.frostbridge.Unmarshaller" >Unmarshaller</a><br></br>
+      Source: <a href="./Unmarshaller.scala.html#Some(113)">Unmarshaller.scala(113)</a>
+      </div>
+      
+      
+      
+        <!-- =========== {subtitle} =========== -->
+        <h3><a name="Constructors">&nbsp;</a>Constructors</h3>
+        <table summary="" cellpadding="3" width="100%" cellspacing="0" border="1">
+        <tbody class="TableRowColor">
+        <tr class="">
+      <td class="signature">
+        <code class="signature">def this(pattern : <a href="./Pattern.html" title="net.frostbridge.Pattern" >Pattern</a>[<a href="./Unmarshaller.Generated.html" title="net.frostbridge.Unmarshaller.Generated" >Generated</a>], handler : <a href="./UnmarshalHandler.html" title="net.frostbridge.UnmarshalHandler" >UnmarshalHandler</a>[<a href="./Unmarshaller.Generated.html" title="net.frostbridge.Unmarshaller.Generated" >Generated</a>, <a href="./Unmarshaller.ResultType.html" title="net.frostbridge.Unmarshaller.ResultType" >ResultType</a>])</code>
+        
+      </td>
+    </tr>
+        </tbody>
+        </table>
+      
+      
+      
+        <!-- =========== {subtitle} =========== -->
+        <h3><a name="Methods">&nbsp;</a>Methods</h3>
+        <table summary="" cellpadding="3" width="100%" cellspacing="0" border="1">
+        <tbody class="TableRowColor">
+        <tr class="isInherited">
+      <td class="name">
+        <b>!=</b>
+      </td>
+      <td class="signature">
+        <code class="signature">final def !=(arg0 : <a href="http://java.sun.com/javase/6/docs/api/java/lang/Object.html" title="java.lang.Object" >Object</a>)</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://www.scala-lang.org/docu/files/api/scala/Boolean.html" title="scala.Boolean" >Boolean</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/AnyRef.html" title="scala.AnyRef" >AnyRef</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>!=</b>
+      </td>
+      <td class="signature">
+        <code class="signature">final def !=(arg0 : <a href="http://www.scala-lang.org/docu/files/api/scala/Any.html" title="scala.Any" >Any</a>)</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://www.scala-lang.org/docu/files/api/scala/Boolean.html" title="scala.Boolean" >Boolean</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/Any.html" title="scala.Any" >Any</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>==</b>
+      </td>
+      <td class="signature">
+        <code class="signature">final def ==(arg0 : <a href="http://www.scala-lang.org/docu/files/api/scala/Any.html" title="scala.Any" >Any</a>)</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://www.scala-lang.org/docu/files/api/scala/Boolean.html" title="scala.Boolean" >Boolean</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/Any.html" title="scala.Any" >Any</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>==</b>
+      </td>
+      <td class="signature">
+        <code class="signature">final def ==(arg0 : <a href="http://java.sun.com/javase/6/docs/api/java/lang/Object.html" title="java.lang.Object" >Object</a>)</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://www.scala-lang.org/docu/files/api/scala/Boolean.html" title="scala.Boolean" >Boolean</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/AnyRef.html" title="scala.AnyRef" >AnyRef</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>asInstanceOf</b>
+      </td>
+      <td class="signature">
+        <code class="signature">final def asInstanceOf[T0]</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://www.scala-lang.org/docu/files/api/scala/Any.T0.html" title="scala.Any.T0" >T0</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/Any.html" title="scala.Any" >Any</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>clone</b>
+      </td>
+      <td class="signature">
+        <code class="signature">protected def clone</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://java.sun.com/javase/6/docs/api/java/lang/Object.html" title="java.lang.Object" >Object</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/AnyRef.html" title="scala.AnyRef" >AnyRef</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>eq</b>
+      </td>
+      <td class="signature">
+        <code class="signature">final def eq(arg0 : <a href="http://java.sun.com/javase/6/docs/api/java/lang/Object.html" title="java.lang.Object" >Object</a>)</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://www.scala-lang.org/docu/files/api/scala/Boolean.html" title="scala.Boolean" >Boolean</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/AnyRef.html" title="scala.AnyRef" >AnyRef</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>equals</b>
+      </td>
+      <td class="signature">
+        <code class="signature">def equals(arg0 : <a href="http://www.scala-lang.org/docu/files/api/scala/Any.html" title="scala.Any" >Any</a>)</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://www.scala-lang.org/docu/files/api/scala/Boolean.html" title="scala.Boolean" >Boolean</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/AnyRef.html" title="scala.AnyRef" >AnyRef</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>finalize</b>
+      </td>
+      <td class="signature">
+        <code class="signature">protected def finalize</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://www.scala-lang.org/docu/files/api/scala/Unit.html" title="scala.Unit" >Unit</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/AnyRef.html" title="scala.AnyRef" >AnyRef</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>getClass</b>
+      </td>
+      <td class="signature">
+        <code class="signature">final def getClass</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://java.sun.com/javase/6/docs/api/java/lang/Class.html" title="java.lang.Class" >Class</a>[<a href="http://www.scala-lang.org/docu/files/api/scala/Any.html" title="scala.Any" >Any</a>]</td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/AnyRef.html" title="scala.AnyRef" >AnyRef</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>hashCode</b>
+      </td>
+      <td class="signature">
+        <code class="signature">def hashCode</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://www.scala-lang.org/docu/files/api/scala/Int.html" title="scala.Int" >Int</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/AnyRef.html" title="scala.AnyRef" >AnyRef</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>isInstanceOf</b>
+      </td>
+      <td class="signature">
+        <code class="signature">final def isInstanceOf[T0]</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://www.scala-lang.org/docu/files/api/scala/Boolean.html" title="scala.Boolean" >Boolean</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/Any.html" title="scala.Any" >Any</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>ne</b>
+      </td>
+      <td class="signature">
+        <code class="signature">final def ne(arg0 : <a href="http://java.sun.com/javase/6/docs/api/java/lang/Object.html" title="java.lang.Object" >Object</a>)</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://www.scala-lang.org/docu/files/api/scala/Boolean.html" title="scala.Boolean" >Boolean</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/AnyRef.html" title="scala.AnyRef" >AnyRef</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>notify</b>
+      </td>
+      <td class="signature">
+        <code class="signature">final def notify</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://www.scala-lang.org/docu/files/api/scala/Unit.html" title="scala.Unit" >Unit</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/AnyRef.html" title="scala.AnyRef" >AnyRef</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>notifyAll</b>
+      </td>
+      <td class="signature">
+        <code class="signature">final def notifyAll</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://www.scala-lang.org/docu/files/api/scala/Unit.html" title="scala.Unit" >Unit</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/AnyRef.html" title="scala.AnyRef" >AnyRef</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>synchronized</b>
+      </td>
+      <td class="signature">
+        <code class="signature">final def synchronized[T0](arg0 : <a href="http://java.sun.com/javase/6/docs/api/java/lang/Object.T0.html" title="java.lang.Object.T0" >T0</a>)</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://java.sun.com/javase/6/docs/api/java/lang/Object.T0.html" title="java.lang.Object.T0" >T0</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/AnyRef.html" title="scala.AnyRef" >AnyRef</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>toString</b>
+      </td>
+      <td class="signature">
+        <code class="signature">def toString</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://java.sun.com/javase/6/docs/api/java/lang/String.html" title="java.lang.String" >String</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/AnyRef.html" title="scala.AnyRef" >AnyRef</a>
+      </td>
+    </tr><tr class="">
+      <td class="name">
+        <b>unmarshal</b>
+      </td>
+      <td class="signature">
+        <code class="signature">final def unmarshal(document : <a href="./in/XMLStream.html" title="net.frostbridge.in.XMLStream" >XMLStream</a>)</code>
+        
+        <div class="apiComments">
+        Unmarshals 'document' according to the pattern provided in the constructor and using
+ the handler provided in the constructor
+        
+              <a href="javascript://" class="detailsBtn" onclick="jQuery(this).next().toggle()">[details]</a>
+              <div class="apiCommentsDetails">
+                The document is consumed after this method
+ returns.
+                
+              </div>
+            
+      </div>
+      </td>
+      <td class="type"><a href="./Unmarshaller.ResultType.html" title="net.frostbridge.Unmarshaller.ResultType" >ResultType</a></td>
+      <td class="remarks">
+        
+        
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>wait</b>
+      </td>
+      <td class="signature">
+        <code class="signature">final def wait(arg0 : <a href="http://www.scala-lang.org/docu/files/api/scala/Long.html" title="scala.Long" >Long</a>, arg1 : <a href="http://www.scala-lang.org/docu/files/api/scala/Int.html" title="scala.Int" >Int</a>)</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://www.scala-lang.org/docu/files/api/scala/Unit.html" title="scala.Unit" >Unit</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/AnyRef.html" title="scala.AnyRef" >AnyRef</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>wait</b>
+      </td>
+      <td class="signature">
+        <code class="signature">final def wait</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://www.scala-lang.org/docu/files/api/scala/Unit.html" title="scala.Unit" >Unit</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/AnyRef.html" title="scala.AnyRef" >AnyRef</a>
+      </td>
+    </tr><tr class="isInherited">
+      <td class="name">
+        <b>wait</b>
+      </td>
+      <td class="signature">
+        <code class="signature">final def wait(arg0 : <a href="http://www.scala-lang.org/docu/files/api/scala/Long.html" title="scala.Long" >Long</a>)</code>
+        
+        
+      </td>
+      <td class="type"><a href="http://www.scala-lang.org/docu/files/api/scala/Unit.html" title="scala.Unit" >Unit</a></td>
+      <td class="remarks">
+        
+        <a href="http://www.scala-lang.org/docu/files/api/scala/AnyRef.html" title="scala.AnyRef" >AnyRef</a>
+      </td>
+    </tr>
+        </tbody>
+        </table>
+      
+      <!-- ========= END OF CLASS DATA ========= -->
+    
+      <!-- ======= START OF BOTTOM NAVBAR ====== -->
+      <a name="navbar_bottom"><!-- --></a>
+      <table cellpadding="1" width="100%" class="NavBar" cellspacing="0" border="0">
+      <tr>
+        <td class="NavBarCell1">
+      <a href="./../../overview.html">OVERVIEW</a>&nbsp;|&nbsp;
+      <a href="./../../overview.html" title="net.frostbridge" >PACKAGE</a> | 
+      <a href="#Constructors">CONSTR</a>&nbsp;|&nbsp;
+      <a href="#Fields">FIELDS</a>&nbsp;|&nbsp;
+      <a href="#Methods">METHODS</a>
+    </td>
+        <td class="NavBarCell2">
+      <a href="./../../index.html" target="_top">FRAMES</a>
+      &nbsp;&nbsp;
+      <a href="Unmarshaller.html" target="_top">NO FRAMES</a>
+    </td>
+        <td class="NavBarCell3"><a href="#" title="show/hide inherited" class="btnInherited" onclick="toggleInherited()">INHERITED<input type="checkbox" class="filter_inherited_cb" checked="true"></input></a></td>
+      </tr>
+    </table>
+      <!-- ======== END OF BOTTOM NAVBAR ======= -->
+      <div>Copyright (c) 2008. All Rights Reserved.</div>
+      <script language="javascript">
+        dp.SyntaxHighlighter.ClipboardSwf = './../../_highlighter/clipboard.swf';
+        dp.SyntaxHighlighter.HighlightAll('code');
+      </script>
+    
+    </html>
