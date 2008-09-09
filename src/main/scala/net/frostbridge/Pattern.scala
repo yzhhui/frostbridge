@@ -53,7 +53,7 @@ sealed trait Pattern[Generated] extends Traceable with NotNull
 	def derive(node: in.Node): Pattern[Generated]
 	
 	/**
-	* Returns None if this value does not match the empty sequence, otherwise
+	* Returns None if this pattern does not match the empty sequence, otherwise
 	* returning the value that this pattern generates when matching the empty
 	* sequence.
 	*/
