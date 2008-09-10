@@ -18,7 +18,7 @@ and functions are written using the function name as the name of the element enc
 The available functions are:
 {{{
 add, subtract, divide, multiply, abs, sqrt, pow, log, max, min, sin, cos, tan, asin, acos, atan, atan2
-}}
+}}}
 and others could be easily added.
 
 The example assumes you have [http://www.scala-lang.org Scala] version 2.7.1 or higher installed and that you download everything in the following section to the same directory.
