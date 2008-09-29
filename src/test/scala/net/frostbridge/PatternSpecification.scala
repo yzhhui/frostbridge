@@ -32,8 +32,8 @@ object PatternSpecification extends Properties("Pattern")
 	})
 	private def patternTest[T](pattern: Pattern[T], fragment: Seq[out.Node]): Boolean =
 	{
-		println("Testing pattern:\n")
-		Traceable.trace(pattern)
+		/*println("Testing pattern:\n")
+		Traceable.trace(pattern)*/
 		import java.io.{StringReader, StringWriter}
 		val writer = new StringWriter
 		out.StAXOutput.write(fragment, out.StAXOutput.createWriter(writer))

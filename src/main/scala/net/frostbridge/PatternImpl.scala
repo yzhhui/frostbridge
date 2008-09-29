@@ -19,7 +19,6 @@
 package net.frostbridge
 
 import java.io.Writer
-import util.TList
 import Traceable.{basicTrace, ReferenceFunction}
 
 // classes to help implement Pattern
@@ -27,17 +26,17 @@ import Traceable.{basicTrace, ReferenceFunction}
 
 trait MarshalInvalid[Generated] extends UnmatchedPattern[Generated]
 {
-	final def marshal(g: Generated, reverseXML: TList[out.Node]) = Left(RootMarshalException(g, this))
+	final def marshal(g: Generated, reverseXML: List[out.Node]) = Left(RootMarshalException(g, this))
 }
 trait BasicMarshaller[Generated] extends UnmatchedPattern[Generated]
 {
-	final def marshal(g: Generated, reverseXML: TList[out.Node]) = marshalImpl(g, reverseXML).toRight(RootMarshalException(g, this))
-	protected def marshalImpl(g: Generated, reverseXML: TList[out.Node]): Option[TList[out.Node]]
+	final def marshal(g: Generated, reverseXML: List[out.Node]) = marshalImpl(g, reverseXML).toRight(RootMarshalException(g, this))
+	protected def marshalImpl(g: Generated, reverseXML: List[out.Node]): Option[List[out.Node]]
 }
 trait MarshalErrorTranslator[Generated] extends UnmatchedPattern[Generated]
 {
-	def translateMarshalError(value: Generated)(e: Either[MarshalException[_], TList[out.Node]]):
-		Either[MarshalException[Generated], TList[out.Node]] =
+	def translateMarshalError(value: Generated)(e: Either[MarshalException[_], List[out.Node]]):
+		Either[MarshalException[Generated], List[out.Node]] =
 			e.left.map(error => ChainedMarshalException(value, this)(error :: Nil))
 }
 

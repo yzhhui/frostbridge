@@ -23,7 +23,6 @@ import Traceable.{basicTrace, ReferenceFunction}
 import PatternImpl.translateNotAllowed
 import PatternFactory._
 import data.ValueParser
-import util.TList
 
 
 /** A pattern that has some single content value (Text or a Comment) */
@@ -31,7 +30,7 @@ sealed trait ContentPattern[Generated] extends UnmatchedPattern[Generated] with 
 {
 	def content: ValueParser[Generated]
 	
-	protected def marshalImpl(g: Generated, reverseXML: TList[out.Node]) =
+	protected def marshalImpl(g: Generated, reverseXML: List[out.Node]) =
 	{
 		for(string <- content.marshalToString(g)) yield
 			nodeFromString(string) :: reverseXML
@@ -117,7 +116,7 @@ abstract class ProcessingInstructionPattern[Generated] extends UnmatchedPattern[
 			case _ => NotAllowedPattern
 		}
 	}
-	def marshalImpl(g: Generated, reverseXML: TList[out.Node]): Option[TList[out.Node]] =
+	def marshalImpl(g: Generated, reverseXML: List[out.Node]): Option[List[out.Node]] =
 		for(pi <- getTargetAndValue(g)) yield
 			pi :: reverseXML
 			

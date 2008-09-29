@@ -18,7 +18,6 @@
 */
 package net.frostbridge
 
-import util.TList
 import PatternImpl._
 import Traceable.{basicTrace, ReferenceFunction}
 import PatternFactory._
@@ -30,14 +29,14 @@ import java.io.Writer
 * This class is optimized so that the stack doesn't overflow when matching a long sequence.
 * It represents
 *	partial :+: (repeated {min, max})
-* in a way that accumulates matched values in reverse in a TList instead of piling up
+* in a way that accumulates matched values in reverse in a List instead of piling up
 * TranslatedPatterns that generate the list on a call to matchEmpty (which will overflow
-* the stack for several thousand values in a sequence)
+* the stack for enough values in a sequence)
 */
 private final class Repeat[Generated]
 	(val partial: Option[Pattern[Generated]],
 	 val repeated: Pattern[Generated],
-	 val accumulatedReverse: TList[Generated],
+	 val accumulatedReverse: List[Generated],
 	 val min: Int,
 	 val max: UpperBound)
 	extends UnmatchedPattern[Seq[Generated]] with MarshalErrorTranslator[Seq[Generated]]
@@ -119,14 +118,14 @@ private final class Repeat[Generated]
 		for(partialAccumulated <- partialAccumulatedOption; repeatEmpty <- repeatedMatchEmpty) yield
 			partialAccumulated reverse_::: repeatEmpty
 	}
-	private def repeatedMatchEmpty: Option[TList[Generated]] =
+	private def repeatedMatchEmpty: Option[List[Generated]] =
 	{
 		if(min == 0)
-			Some(TList.empty)
+			Some(Nil)
 		else
 			// forced determinism
 			for(value <- repeated.matchEmpty) yield
-				TList.make(min, value)
+				List.make(min, value)
 	}
 	
 	def nextPossiblePatterns =
@@ -147,7 +146,7 @@ private final class Repeat[Generated]
 	private def repeatNextPossiblePatterns = repeated.nextPossiblePatterns
 
 	
-	def marshal(g: Seq[Generated], reverseXML: TList[out.Node]) =
+	def marshal(g: Seq[Generated], reverseXML: List[out.Node]) =
 	{
 		if(partial.isDefined || !accumulatedReverse.isEmpty)
 			error("Cannot marshal a partially applied repeating pattern.")
@@ -155,11 +154,11 @@ private final class Repeat[Generated]
 			repeatMarshal(g, reverseXML)
 	}
 	
-	private def repeatMarshal(list: Seq[Generated], reverseXML: TList[out.Node]) =
+	private def repeatMarshal(list: Seq[Generated], reverseXML: List[out.Node]) =
 	{
 		if(validLength(list.size))
 		{
-			val initial: Either[MarshalException[Generated], TList[out.Node]] = Right(reverseXML)
+			val initial: Either[MarshalException[Generated], List[out.Node]] = Right(reverseXML)
 			translateMarshalError(list)(list.foldLeft(initial)(foldMarshal))
 		}
 		else
@@ -167,8 +166,8 @@ private final class Repeat[Generated]
 	}
 	private def validLength(length: Int): Boolean = max >= length && length >= min
 	
-	private def foldMarshal(result: Either[MarshalException[Generated], TList[out.Node]], g: Generated):
-		Either[MarshalException[Generated], TList[out.Node]] =
+	private def foldMarshal(result: Either[MarshalException[Generated], List[out.Node]], g: Generated):
+		Either[MarshalException[Generated], List[out.Node]] =
 	{
 		result.right.flatMap(newXML => repeated.marshal(g, newXML))
 	}
@@ -231,11 +230,11 @@ private final class Repeat[Generated]
 trait RepeatPatternFactory
 {
 	final def repeat[G](repeated: Pattern[G], min: Int, max: UpperBound): Pattern[Seq[G]] =
-		repeat(None, repeated, TList.empty[G], min, max) 
-	private[frostbridge] final def repeat[G](partial: Pattern[G], repeated: Pattern[G], accumulatedReverse: TList[G],
+		repeat(None, repeated, Nil, min, max) 
+	private[frostbridge] final def repeat[G](partial: Pattern[G], repeated: Pattern[G], accumulatedReverse: List[G],
 		min: Int, max: UpperBound): Pattern[Seq[G]] =
 			repeat(Some(partial), repeated, accumulatedReverse, min, max)
-	private[frostbridge] final def repeat[G](partial: Option[Pattern[G]], repeated: Pattern[G], accumulatedReverse: TList[G],
+	private[frostbridge] final def repeat[G](partial: Option[Pattern[G]], repeated: Pattern[G], accumulatedReverse: List[G],
 		 min: Int, max: UpperBound): Pattern[Seq[G]] =
 	{
 		assume(min >= 0, "Minimum must be greater than or equal to zero")
@@ -253,7 +252,7 @@ trait RepeatPatternFactory
 			{
 				repeated.matched match
 				{
-					case Some(value) => EmptyPattern(TList(value))
+					case Some(value) => EmptyPattern(List(value))
 					case None => new Repeat(partial, repeated, accumulatedReverse, min, max)
 				}
 			}
@@ -273,12 +272,12 @@ trait RepeatPatternFactory
 				}
 			}
 			case None =>
-				checkRepeated(EmptyPattern(TList.empty))
+				checkRepeated(EmptyPattern(Nil))
 		}
 	}
 	
 	private[frostbridge] def translateLast[Generated]
-		(pattern: Pattern[Generated], accumulatedReverse: TList[Generated]) =
+		(pattern: Pattern[Generated], accumulatedReverse: List[Generated]) =
 			pattern >>= TranslateLast[Generated](accumulatedReverse)
 			
 	final def optional[G](pattern: Pattern[G]): Pattern[Option[G]] =
@@ -291,7 +290,7 @@ private final case class TranslateOptional[Generated] extends Mapping[Option[Gen
 	def unprocess(s: Option[Generated]) = s
 }
 /** A mapping that prepends a generated object to a list and reverses the prepended list. */
-private final case class TranslateLast[Generated](accumulatedReverse: TList[Generated])
+private final case class TranslateLast[Generated](accumulatedReverse: List[Generated])
 	extends Mapping[Seq[Generated],Generated]
 {
 	def process(g: Generated) = (g :: accumulatedReverse).reverse

@@ -18,7 +18,6 @@
 */
 package net.frostbridge
 
-import util.TList
 import ElementContentPattern._
 import PatternImpl._
 import PatternFactory._
@@ -72,13 +71,13 @@ sealed abstract class ElementPattern[Generated, ChildGenerated]
 	protected[this] def orError[B](g: Generated, value: Option[B]): Either.RightProjection[RootMarshalException[Generated],B] =
 		value.toRight(RootMarshalException(g, this)).right
 	
-	def marshal(g: Generated, reverseXML: TList[out.Node]) =
+	def marshal(g: Generated, reverseXML: List[out.Node]) =
 	{
 		translateMarshalError(g)
 		{
 			for(name <- orError(g, generateName(g));
 				childValue <- orError(g, marshalTranslate(name, g));
-				content <- childrenPattern(name).marshal(childValue, TList.empty).right)
+				content <- childrenPattern(name).marshal(childValue, Nil).right)
 			yield
 				out.Element(name, content.reverse) :: reverseXML
 		}

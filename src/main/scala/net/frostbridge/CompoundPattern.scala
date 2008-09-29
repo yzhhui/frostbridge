@@ -18,7 +18,6 @@
 */
 package net.frostbridge
 
-import util.TList
 import PatternFactory._
 import PatternImpl._
 import Traceable._
@@ -118,11 +117,11 @@ private sealed trait BinaryRequired[A,B] extends BinaryCompoundPattern[A, B, (A,
 		for(value1 <- pattern1.matchEmpty; value2 <- pattern2.matchEmpty) yield
 			(value1, value2)
 			
-	def marshal(g: (A, B), reverseXML: TList[out.Node]) =
+	def marshal(g: (A, B), reverseXML: List[out.Node]) =
 	{
 		val (a, b) = g
 		val dA = pattern1.marshal(a, reverseXML)
-		val dB = pattern2.marshal(b, dA.right.getOrElse(TList.empty))
+		val dB = pattern2.marshal(b, dA.right.getOrElse(Nil))
 		val errors = List.lefts(dA :: dB :: Nil)
 		if(errors.isEmpty)
 			translateMarshalError(g)(dB)
@@ -139,7 +138,7 @@ private final class HeterogeneousChoice[A, B](val pattern1: Pattern[A], val patt
 	def separator = "|+|"
 	def nextPossiblePatterns = pattern1.nextPossiblePatterns ::: pattern2.nextPossiblePatterns 
 	
-	def marshal(g: Either[A,B], reverseXML: TList[out.Node]) =
+	def marshal(g: Either[A,B], reverseXML: List[out.Node]) =
 		for(error <- g.fold(pattern1.marshal(_, reverseXML), pattern2.marshal(_, reverseXML)).left) yield
 			ChainedMarshalException(g, this)(List(error))
 	
@@ -175,7 +174,7 @@ private[frostbridge] final class HomogeneousChoice[Generated](val pattern1: Patt
 			m	// Forced determinism
 	}
 	
-	def marshal(g: Generated, reverseXML: TList[out.Node]) =
+	def marshal(g: Generated, reverseXML: List[out.Node]) =
 	{
 		for(errorA <- pattern1.marshal(g, reverseXML).left;// Forced determinism
 			errorB <- pattern2.marshal(g, reverseXML).left)
