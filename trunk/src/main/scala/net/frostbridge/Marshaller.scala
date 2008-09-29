@@ -37,7 +37,7 @@ object Marshaller
 	* None if marshalling is successful or Some containing the error if it is unsuccessful.*/
 	def apply[Generated](value: Generated, pattern: Pattern[Generated], output: XMLStreamWriter): Option[MarshalException[Generated]] =
 	{
-		pattern.marshal(value, util.TList.empty) match
+		pattern.marshal(value, Nil) match
 		{
 			case Right(nodeList) => out.StAXOutput.write(nodeList.reverse, output); None
 			case Left(error) => Some(error)

@@ -22,7 +22,6 @@ import PatternImpl._
 import Traceable._
 import PatternFactory._
 import data.ValueParser
-import util.TList
 import java.io.Writer
 
 /**
@@ -58,7 +57,7 @@ abstract class AttributePattern[Generated] extends UnmatchedPattern[Generated] w
 		}
 	}
 	
-	def marshalImpl(g: Generated, reverseXML: TList[out.Node]): Option[TList[out.Node]] =
+	def marshalImpl(g: Generated, reverseXML: List[out.Node]): Option[List[out.Node]] =
 		for(attribute <- marshalImpl(g)) yield
 			attribute :: reverseXML
 	

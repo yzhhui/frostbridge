@@ -38,7 +38,7 @@ import PatternFactory._
 * log, max, min, sin, cos, tan, asin, acos, atan, atan2.  Others are easily added.
 *
 * To run this example, pass Calculator.exp as the argument to the PatternTest
-* constructor and follow the instruction on running PatternTest with echoResult=true.
+* constructor and follow the instructions on running PatternTest with echoResult=true.
 */
 object Calculator
 {

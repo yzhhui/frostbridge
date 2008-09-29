@@ -22,7 +22,6 @@ import java.io.Writer
 
 import PatternImpl.{checkAllowed, checkNonEmpty, translateNotAllowed}
 import Traceable.{basicTrace, ReferenceFunction}
-import util.TList
 
 /** Represents a general transformation of the result of a pattern into another pattern.
 * (p: Pattern[S]) >>= (b: Binding[G, S])
@@ -105,7 +104,7 @@ private abstract class TranslatingPattern[Generated, Source]
 	final def nextPossiblePatterns = delegate.nextPossiblePatterns
 	final def trace(writer: Writer, level: Int, reference: ReferenceFunction) = delegate.trace(writer, level, reference)
 	
-	def marshal(g: Generated, reverseXML: TList[out.Node]) =
+	def marshal(g: Generated, reverseXML: List[out.Node]) =
 		translateMarshalError(g)
 		{
 			binding.unprocess(g) match

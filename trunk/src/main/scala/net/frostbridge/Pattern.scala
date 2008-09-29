@@ -85,7 +85,7 @@ sealed trait Pattern[Generated] extends Traceable with NotNull
 	* Constructs XML nodes from a generated object 'g' and prepends them to the reverse list
 	* of XML nodes in 'reverseXML'.  'reverseXML' should be reversed before consumption.
 	*/
-	def marshal(g: Generated, reverseXML: util.TList[out.Node]): Either[MarshalException[Generated], util.TList[out.Node]]
+	def marshal(g: Generated, reverseXML: List[out.Node]): Either[MarshalException[Generated], List[out.Node]]
 
 	import PatternFactory._
 	
@@ -153,7 +153,7 @@ final case class EmptyPattern[Generated](value: Generated) extends Pattern[Gener
 	
 	def matchEmpty = Some(value)
 	def matched = Some(value)
-	def marshal(g: Generated, reverseXML: util.TList[out.Node]) =
+	def marshal(g: Generated, reverseXML: List[out.Node]) =
 	{
 		if(value == g)
 			Right(reverseXML)
