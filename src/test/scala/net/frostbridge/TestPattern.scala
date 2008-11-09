@@ -69,7 +69,7 @@ abstract class DefaultPatternFrequency extends NotNull
 
 class PatternGen extends DefaultPatternFrequency
 {
-	import Random._
+	import util.Random._
 
 	implicit val namespaceGenerator = xml.ArbitraryXML.defaultNamespaces.namespace
 	
@@ -412,52 +412,59 @@ class PatternGen extends DefaultPatternFrequency
 	
 }
 
-object Random
+object TestPattern
 {
-	import org.scalacheck._
-	def poisson(expected: Double): Int =
+	def apply[T](pattern: Pattern[T], fragment: Seq[out.Node]): Boolean =
+		apply[T](pattern, fragment, false, false, (t: T) => true, (s: String) => true)
+	def apply[T](pattern: Pattern[T], fragment: Seq[out.Node],
+		unmarshalErrorExpected: Boolean, marshalErrorExpected: Boolean,
+		checkRead: T => Boolean, checkWrite: String => Boolean): Boolean =
 	{
-		val L = Math.exp(-expected)
-		def poissonImpl(k: Int, p: Double): Int =
+		/*println("Testing pattern:\n")
+		Traceable.trace(pattern)*/
+		import java.io.{StringReader, StringWriter}
+		val writer = new StringWriter
+		out.StAXOutput.write(fragment, out.StAXOutput.createWriter(writer))
+		val xmlString = writer.toString
+		Unmarshaller.unmarshalOrError(pattern, in.StAXStream(new StringReader(xmlString))) match
 		{
-			if(p < L)
-				k
-			else
-				poissonImpl(k+1, p * StdRand.choose(0.0, 1.0))
+			case Left(errorMessage) =>
+			{
+				if(unmarshalErrorExpected)
+					true
+				else
+				{
+					println(errorMessage)
+					println("XML was:")
+					println(xmlString)
+					false
+				}
+			}
+			case Right(matched) =>
+			{
+				!unmarshalErrorExpected && 
+				checkRead(matched) &&
+				{
+					val w = new StringWriter
+					Marshaller(matched, pattern, w) match
+					{
+						case Some(error) =>
+						{
+							if(marshalErrorExpected)
+								true
+							else
+							{
+								println("Error serializing generated object:\n\n" +matched +"\n\nfor pattern:\n")
+								Traceable.trace(pattern)
+								println("\nBecause:")
+								println(error.getRootCauses.mkString("\n\nand\n\n"))
+								false
+							}
+						}
+						case None => !marshalErrorExpected && checkWrite(w.toString)
+					}
+				}
+			}
 		}
-		poissonImpl(0, StdRand.choose(0.0, 1.0))
-	}
-	def poissonGen(expected: Double): Gen[Int] = Gen[Int] { (params: Gen.Params) => Some(poisson(expected)) }
-	def pickN[T](n: Int, frequencyValues: Seq[(Int, T)]): List[T] =
-	{
-		require(n >= 0)
-		val cumulative = accumulate(frequencyValues)
-		def doPick(remaining: Int, workingList: List[T]): List[T] =
-			if(remaining <= 0)
-				workingList
-			else
-				doPick(remaining -1, pick(cumulative) :: workingList)
-			
-		doPick(n, Nil)
-	}
-	def pick1[T](frequencyValues: Seq[(Int, T)]): T = pick(accumulate(frequencyValues))
-	private def pick[T](cumulative: (Int, List[(Int, T)])): T =
-	{
-		val (total, list) = cumulative
-		require(total >= 1)
-		val i = StdRand.choose(1, total)
-		list.find(i <= _._1).get._2
-	}
-	private def accumulate[T](frequencyValues: Seq[(Int, T)]): (Int, List[(Int,T)]) =
-	{
-		val size = frequencyValues.size
-		require(size != 0)
-		def fold(result: (Int, List[(Int, T)]), current: (Int, T)): (Int, List[(Int, T)]) =
-		{
-			val newSum = result._1 + current._1
-			(newSum, (newSum, current._2) :: result._2)
-		}
-		val reverse = ( (0, Nil: List[(Int, T)]) /: frequencyValues )(fold)
-		(reverse._1, reverse._2.reverse)
 	}
 }

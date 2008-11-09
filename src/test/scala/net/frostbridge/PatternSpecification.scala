@@ -28,53 +28,6 @@ object PatternSpecification extends Properties("Pattern")
 	specify("matches valid pattern", (test: FTestPattern) =>
 	{
 		val xml = test.testXML.sample
-		(xml.isDefined && xml.get.valid) ==> patternTest(test.pattern, xml.get.fragment)
+		(xml.isDefined && xml.get.valid) ==> TestPattern(test.pattern, xml.get.fragment)
 	})
-	private def patternTest[T](pattern: Pattern[T], fragment: Seq[out.Node]): Boolean =
-	{
-		/*println("Testing pattern:\n")
-		Traceable.trace(pattern)*/
-		import java.io.{StringReader, StringWriter}
-		val writer = new StringWriter
-		out.StAXOutput.write(fragment, out.StAXOutput.createWriter(writer))
-		val xmlString = writer.toString
-		Unmarshaller.unmarshalOrError(pattern, in.StAXStream(new StringReader(xmlString))) match
-		{
-			case Left(errorMessage) =>
-			{
-				println(errorMessage)
-				println("XML was:")
-				println(xmlString)
-				false
-			}
-			case Right(matched) =>
-			{
-				val w = new StringWriter
-				Marshaller(matched, pattern, w) match
-				{
-					case Some(error) =>
-					{
-						println("Error serializing generated object:\n\n" +matched +"\n\nfor pattern:\n")
-						Traceable.trace(pattern)
-						println("\nBecause:")
-						println(error.getRootCauses.mkString("\n\nand\n\n"))
-						false
-					}
-					case None => true
-				}
-			}
-		}
-	}
-	
-	def runTests
-	{
-		for((label, Test.Result(status, _, _, _)) <- Test.checkProperties(this))
-		{
-			status match
-			{
-				case Test.GenException(e) => e.printStackTrace
-				case _ => ()
-			}
-		}
-	}
 }

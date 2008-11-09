@@ -210,6 +210,13 @@ abstract class Location
 	
 	override def toString = "Location {url=" + location + ", lastModified=" + lastModified + ", frequency=" + changeFrequency +
 		", priority=" + priority + "}"
+	final override def equals(o: Any) =
+		o match
+		{
+			case l: Location => l.location == location && l.lastModified == lastModified &&
+				l.changeFrequency == changeFrequency && l.priority == priority
+			case _ => false
+		}
 }
 // The following separate definition of the Enumeration as a class and then having the
 //  object inherit the class is required due to difficulties representing inner types
