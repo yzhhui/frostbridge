@@ -16,6 +16,8 @@
 *    You should have received a copy of the GNU Lesser General Public License
 *    along with Frostbridge.  If not, see <http://www.gnu.org/licenses/>.
 */
+package net.frostbridge.example
+
 import net.frostbridge._
 import Implicits._
 
