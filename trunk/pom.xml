@@ -41,7 +41,7 @@
 	
 	<!-- These properties define the versions of components required.-->
 	<properties>
-		<scala.version>2.7.2-rc1</scala.version>
+		<scala.version>2.7.2-rc3</scala.version>
 		<woodstox.version>3.2.6</woodstox.version>
 		<scalacheck.version>1.4</scalacheck.version>
 		<vscaladoc.version>1.2-SNAPSHOT</vscaladoc.version>

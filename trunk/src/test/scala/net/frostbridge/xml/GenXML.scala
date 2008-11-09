@@ -1,6 +1,6 @@
 package net.frostbridge.xml
 
-import org.scalacheck._
+import org.scalacheck.{util => sutil, _}
 import Prop.forAll
 import Gen.{choose, containerOfN, elementsFreq, frequency, Params, value, vectorOf}
 import Arbitrary.arbitrary
@@ -151,9 +151,9 @@ object GenXMLEvent
 					if(p < L)
 						k
 					else
-						poissonImpl(k+1, p * StdRand.choose(0.0, 1.0))
+						poissonImpl(k+1, p * sutil.StdRand.nextDouble())
 				}
-				Some(poissonImpl(0, StdRand.choose(0.0, 1.0)))
+				Some(poissonImpl(0, sutil.StdRand.nextDouble()))
 			}
 		}
 	def contentConfig(averageChildren: Double, averageDepth: Int, averageAttributes: Double) =
