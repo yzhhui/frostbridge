@@ -1,5 +1,5 @@
 <addrBook>
-    <contact name="Bart" phone="666" />
+    <contact name="Bart" phone="666" last="Simpson"/>
     <contact name="Maggy" phone="777" />
     <contact name="Homer" phone="555" />
 </addrBook>
