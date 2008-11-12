@@ -33,16 +33,16 @@ object SimpleAddressBook
 		
 		val name = attribute("name", NonEmptyString)
 		val phone = attribute("phone", AnyString)
-		val contactPattern = name :+: phone
+		val contactPattern = name :+: phone :+: (IgnoreAny.anyAttribute*)
 		val contact =
 			new element[Contact, contactPattern.GeneratedType]("contact", contactPattern)
 			{
 				def generate(c: contactPattern.GeneratedType) =
 				{
-					val n :+: p = c
+					val n :+: p :+: ignore = c
 					Contact(n, p)
 				}
-				def marshalTranslate(c: Contact) = Some(c.name :+: c.phone)
+				def marshalTranslate(c: Contact) = Some(c.name :+: c.phone :+: Nil)
 			}
 		
 		new element[AddressBook, Seq[Contact]]("addrBook", contact*)
